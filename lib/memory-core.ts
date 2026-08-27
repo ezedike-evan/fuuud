@@ -1,5 +1,5 @@
 import { createMemWal as getMemWal, memwalMode, withRelayerRetry } from "./memwal-client.ts";
-import { healthNs, feedbackNs } from "./namespaces.ts";
+import { healthNs, feedbackNs, planNs } from "./namespaces.ts";
 import {
   DUPLICATE_DISTANCE,
   RELEVANCE_DISTANCE,
@@ -70,6 +70,7 @@ const KIND_NAMESPACE: Record<FactKind, (a: string) => string> = {
   rejection: feedbackNs,
   symptom: feedbackNs,
   dislike: feedbackNs,
+  plan: planNs,
 };
 
 export type { FactKind, RecalledFact };
@@ -108,6 +109,10 @@ export const recallSafety = (address: string) => recallFrom(healthNs(address), S
 
 /** Standing preferences — likewise always relevant to a meal suggestion. */
 export const recallPreferences = (address: string) => recallFrom(feedbackNs(address), PREFERENCE_QUERY);
+
+/** Scheduled meals. A stable query: a plan is never "relevant" by similarity. */
+export const recallPlan = (address: string) =>
+  recallFrom(planNs(address), "meals scheduled for breakfast, lunch and dinner");
 
 /**
  * The relevance floor is an EMBEDDING distance, so it only means anything

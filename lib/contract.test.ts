@@ -11,6 +11,7 @@ import {
 import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
 import { resolveModels, keyFor } from "./model-select.ts";
+import { parsePlan, formatPlanClaim, screenPlan, planFromFacts, weekFrom } from "./plan.ts";
 import { ORDER, PROVIDERS } from "./providers.ts";
 
 test("namespaces are lowercase, scoped, and never collide", () => {
@@ -423,4 +424,67 @@ test("an unknown condition alone is never an empty constraint block", () => {
   const text = buildSafetyConstraintsText({ conditions: ["asthma"], allergies: [] });
   const bullets = text.split("\n").filter((l) => l.startsWith("- "));
   assert.ok(bullets.length > 0, "constraints must never be a bare header");
+});
+
+
+/*
+ * THE MEAL CALENDAR.
+ *
+ * A plan is screened against the record as it stands NOW, not as it stood when
+ * the meal was scheduled. That is the whole feature: tell the agent about an
+ * allergy today and next week's calendar reacts.
+ */
+test("a planned meal round-trips through the stored line", () => {
+  const meal = { date: "2026-08-30", slot: "lunch" as const, meal: "jollof rice with grilled chicken" };
+  const stored = formatFact("plan", formatPlanClaim(meal));
+  assert.deepEqual(parsePlan(stored), meal);
+  // The line records BOTH days: written today, eaten on the 30th.
+  assert.equal(factDate(stored), new Date().toISOString().slice(0, 10));
+});
+
+test("a fact that is not a plan never parses as one", () => {
+  assert.equal(parsePlan("2026-08-27 | allergy | groundnuts - hives"), null);
+  assert.equal(parsePlan("2026-08-27 | plan | not-a-date | lunch | jollof"), null);
+  assert.equal(parsePlan("2026-08-27 | plan | 2026-08-30 | brunch | jollof"), null, "unknown slot");
+});
+
+test("a new allergy retroactively flags a meal already planned", () => {
+  const meals = [
+    { date: "2026-08-30", slot: "breakfast" as const, meal: "akamu with groundnut paste" },
+    { date: "2026-08-30", slot: "lunch" as const, meal: "jollof rice with grilled chicken" },
+  ];
+
+  // Planned when the record was empty: both fine.
+  const before = screenPlan(meals, {});
+  assert.deepEqual(before.map((m) => m.safe), [true, true]);
+
+  // They tell the agent about groundnuts. The calendar reacts.
+  const after = screenPlan(meals, { allergies: ["groundnuts - hives"] });
+  assert.equal(after[0].safe, false, "the groundnut breakfast must flag");
+  assert.ok(after[0].flags.length > 0, "and name what clashes");
+  assert.equal(after[1].safe, true, "the jollof lunch is untouched");
+});
+
+test("a suspected allergy flags the calendar just as hard", () => {
+  const meals = [{ date: "2026-08-30", slot: "dinner" as const, meal: "groundnut soup with pounded yam" }];
+  assert.equal(screenPlan(meals, { allergies: ["suspected groundnut allergy"] })[0].safe, false);
+});
+
+test("the newest write wins for a given date and slot", () => {
+  const plan = planFromFacts([
+    { text: "2026-08-27 | plan | 2026-08-30 | lunch | egusi soup", distance: 0.1, blobId: "b1" },
+    { text: "2026-08-28 | plan | 2026-08-30 | lunch | ofada rice", distance: 0.1, blobId: "b2" },
+  ]);
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].meal, "ofada rice");
+});
+
+test("the week is seven consecutive local dates and rolls over a month end", () => {
+  // Local components, not a UTC instant: weekFrom deliberately returns the
+  // dates as the person's own calendar shows them.
+  const week = weekFrom(new Date(2026, 7, 28, 12, 0, 0));
+  assert.equal(week.length, 7);
+  assert.equal(week[0], "2026-08-28");
+  assert.equal(week[6], "2026-09-03", "must roll across a month boundary");
+  assert.equal(new Set(week).size, 7, "no repeats");
 });

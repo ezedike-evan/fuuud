@@ -28,3 +28,11 @@ export const healthNs = (address: string) => scope("health", address);
 
 /** Reactions and preferences: rejected meals, symptoms after eating. */
 export const feedbackNs = (address: string) => scope("feedback", address);
+
+/**
+ * Scheduled meals. Kept apart from health and feedback deliberately: a plan is
+ * something the agent proposed and the person accepted, not a fact they
+ * asserted about their body. It must never be recalled into the chat prompt as
+ * though it were one.
+ */
+export const planNs = (address: string) => scope("plan", address);
