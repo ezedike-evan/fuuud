@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   formatFact, formatTombstone, factProbe, idempotencyKeyFor, isOffTheRecord,
-  resolveConflicts, retractionTarget, factDate,
+  resolveConflicts, retractionTarget, factDate, unionFacts,
 } from "./facts.ts";
 import {
   screenReply, buildSafetyConstraintsText, findFlags,
@@ -10,6 +10,8 @@ import {
 } from "./safety.ts";
 import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
+import { resolveModels, keyFor } from "./model-select.ts";
+import { ORDER, PROVIDERS } from "./providers.ts";
 
 test("namespaces are lowercase, scoped, and never collide", () => {
   assert.equal(healthNs("0xABC"), "kitchen:health:0xabc");
@@ -273,3 +275,118 @@ test("a suspected allergy still screens meals", () => {
   assert.equal(screenReply("Akamu with groundnut paste", profile).safe, false);
   assert.equal(screenReply("Jollof rice with grilled chicken", profile).safe, true);
 });
+
+
+/*
+ * THE TWO JOBS MUST NEVER DRIFT APART.
+ *
+ * The conversation and the write gate are separate calls, and for a while they
+ * resolved to different models: chat used the model the person picked, while
+ * extraction used a per-provider default this repo guessed at and never
+ * checked against the provider's live roster. The result was a healthy-looking
+ * conversation in which every single turn failed to save.
+ *
+ * `bag` here is what a person's own settings look like — their key, their
+ * model — for whichever provider they chose. `env: {}` proves none of this
+ * leans on the deployment's environment.
+ */
+for (const provider of ORDER) {
+  test(`${provider}: chat and extraction share provider, key and model`, () => {
+    const bag = {
+      keys: { [provider]: `test-key-for-${provider}` },
+      models: {},
+      active: provider,
+    };
+    const r = resolveModels(bag, {});
+    assert.equal(r.provider, provider);
+    assert.equal(r.apiKey, `test-key-for-${provider}`);
+    assert.equal(r.chat, PROVIDERS[provider].chat);
+    // The property that was broken: the gate runs on the same model.
+    assert.equal(r.extract, r.chat);
+  });
+
+  test(`${provider}: a chosen model is used for extraction too`, () => {
+    const picked = "some-model-they-picked";
+    const bag = {
+      keys: { [provider]: "k" },
+      models: { [provider]: picked },
+      active: provider,
+    };
+    const r = resolveModels(bag, {});
+    assert.equal(r.chat, picked);
+    assert.equal(r.extract, picked);
+  });
+}
+
+test("the person's own key beats the deployment's", () => {
+  const bag = { keys: { anthropic: "theirs" }, models: {}, active: "anthropic" as const };
+  const env = { ANTHROPIC_API_KEY: "the deployment's" };
+  assert.equal(keyFor("anthropic", bag, env), "theirs");
+  // ...and the deployment's key still works when they have not set one.
+  assert.equal(keyFor("anthropic", { keys: {}, models: {} }, env), "the deployment's");
+});
+
+test("an env key alone is enough to resolve a provider", () => {
+  const r = resolveModels({ keys: {}, models: {} }, { GOOGLE_GENERATIVE_AI_API_KEY: "g" });
+  assert.equal(r.provider, "google");
+  assert.equal(r.apiKey, "g");
+  assert.equal(r.extract, r.chat);
+});
+
+test("KM_EXTRACT_MODEL is the only thing that splits the two", () => {
+  const bag = { keys: { groq: "k" }, models: { groq: "big-model" }, active: "groq" as const };
+  const r = resolveModels(bag, { KM_EXTRACT_MODEL: "small-model" });
+  assert.equal(r.chat, "big-model");
+  assert.equal(r.extract, "small-model");
+});
+
+test("no key anywhere fails with the code the chat UI branches on", () => {
+  assert.throws(
+    () => resolveModels({ keys: {}, models: {} }, {}),
+    /NO_PROVIDER_KEY/,
+  );
+});
+
+
+/*
+ * Allergies must not be retrieved by relevance to the question.
+ *
+ * The chat route used to recall the health namespace with the person's own
+ * turn as the query. Recall is a similarity search with a relevance floor, so
+ * "something light for dinner" pushed a stored groundnut allergy below the
+ * floor and the agent answered as though it did not exist — while the memory
+ * rail, which has always used a fixed query, showed that same allergy on the
+ * page beside it.
+ */
+test("the safety query is fixed, not the user's question", async () => {
+  const { SAFETY_QUERY, PREFERENCE_QUERY } = await import("./memory-core.ts");
+  // Both name what they are looking for, so a stored allergy embeds near them
+  // whatever the person happened to type.
+  assert.match(SAFETY_QUERY, /allerg/i);
+  assert.match(SAFETY_QUERY, /condition/i);
+  assert.match(PREFERENCE_QUERY, /dislike/i);
+});
+
+test("merged recalls list a fact once, at its best distance", () => {
+  const a = [{ text: "2026-08-27 | allergy | groundnuts - hives", distance: 0.55, blobId: "b1" }];
+  const b = [
+    { text: "2026-08-27 | allergy | groundnuts - hives", distance: 0.21, blobId: "b1" },
+    { text: "2026-08-27 | dislike | most vegetables", distance: 0.4, blobId: "b2" },
+  ];
+  const merged = unionFacts(a, b);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].distance, 0.21, "keeps the closer match");
+  assert.equal(merged.filter((f) => f.text.includes("groundnuts")).length, 1, "no duplicate");
+});
+
+test("an allergy recalled on an unrelated question still blocks the meal", () => {
+  // The end of the chain: whatever the person asked, once the allergy is in
+  // the profile the screen refuses a groundnut meal.
+  const profile = { allergies: claimsOfKindText(["2026-08-27 | allergy | groundnuts - hives"]) };
+  assert.equal(screenReply("Akamu with groundnut paste", profile).safe, false);
+});
+
+/** Mirror of how the route turns recalled lines into a profile. */
+function claimsOfKindText(lines: string[]) {
+  return lines.map((l) => l.split("|").slice(2).join("|").trim());
+}

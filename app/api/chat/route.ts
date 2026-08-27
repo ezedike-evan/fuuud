@@ -1,7 +1,7 @@
 import { streamText, StreamData } from "ai";
 import { chatModel, describeModel } from "@/lib/model.ts";
 import { getOwnerAddress } from "@/lib/session.ts";
-import { recallHealth, recallFeedback, resolveConflicts, rememberFact, isOffTheRecord, claimsOfKind } from "@/lib/memory-contract.ts";
+import { recallSafety, recallPreferences, recallFeedback, resolveConflicts, rememberFact, isOffTheRecord, claimsOfKind, unionFacts } from "@/lib/memory-contract.ts";
 import { extractFacts } from "@/lib/extract.ts";
 import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 
@@ -13,7 +13,9 @@ const BASE_PROMPT = [
   // The failure this exists to stop: a full day's menu produced for someone
   // whose allergies were never asked about. Suggesting food is the whole point
   // of the app, so the rule has to be explicit or the model does it anyway.
-  "ASK BEFORE YOU SUGGEST. If you have not been told this person's allergies and conditions, your first reply is a question, not a meal. One short question covering both, and say they only have to tell you once.",
+  "CHECK WHAT YOU ALREADY KNOW BEFORE YOU ASK. The block below is their own stored record, carried across every session. If it names an allergy or condition, you have already been told - use it and do not ask again. Asking someone to repeat an allergy they gave you is the one thing this app exists to prevent.",
+  "ASK ONLY WHEN THE RECORD IS EMPTY. If it holds nothing about allergies or conditions, your first reply is a question, not a meal. One short question covering both, and say they only have to tell you once.",
+  "When you use a stored fact, say so in passing - 'no groundnut, as you told me' - so they can see the memory working and correct it if it is wrong.",
   "Do not pad that question with a sample menu, an example day, or 'in the meantime you could try'. A suggestion attached to the question defeats it.",
   "Once you know - including when they tell you they have none - suggest food normally and do not ask again.",
   "Respect what they dislike. Do not serve a disliked food, and do not blend, puree or hide it in a dish and present that as a solution. Suggest something else.",
@@ -38,17 +40,33 @@ export async function POST(req: Request) {
     .reverse()
     .find((m: { role: string }) => m.role === "assistant")?.content ?? "";
 
-  // ONE recall per turn, both namespaces in parallel. Never recall per-route.
-  //
-  // This FAILS CLOSED. If the record is unreachable we do not quietly answer as
-  // though the person had no conditions — a blind meal suggestion is exactly the
-  // hazard this app exists to remove. Say so and stop.
+  /*
+   * ONE recall pass per turn, in parallel. Never recall per-route.
+   *
+   * The health namespace is read with a STABLE query, never the person's turn.
+   * Recall is a similarity search with a relevance floor, so querying with
+   * "something light for dinner" pushed `allergy | groundnuts - hives` below
+   * the floor and the agent answered as though no allergy existed — while the
+   * memory rail, which has always used a fixed query, sat next to it showing
+   * that same allergy. An allergy is not relevant only when it is mentioned.
+   *
+   * Feedback is read twice and merged: a stable query so standing dislikes
+   * always apply, plus the person's own words so something they rejected last
+   * time surfaces when it comes up again.
+   *
+   * This FAILS CLOSED. If the record is unreachable we do not quietly answer as
+   * though the person had no conditions — a blind meal suggestion is exactly the
+   * hazard this app exists to remove. Say so and stop.
+   */
   let health, feedback;
   try {
-    [health, feedback] = await Promise.all([
-      recallHealth(address, latest),
+    const [safety, standing, topical] = await Promise.all([
+      recallSafety(address),
+      recallPreferences(address),
       recallFeedback(address, latest),
     ]);
+    health = safety;
+    feedback = unionFacts(standing, topical);
   } catch (error) {
     console.error("recall failed", error);
     return new Response(
@@ -70,10 +88,10 @@ export async function POST(req: Request) {
   };
 
   const memoryBlock = [...activeHealth, ...activeFeedback].length
-    ? `WHAT YOU ALREADY KNOW ABOUT THIS USER (from their own stored memory):\n${
+    ? `WHAT YOU ALREADY KNOW ABOUT THIS USER (from their own stored memory, carried across sessions):\n${
         [...activeHealth, ...activeFeedback].map((f) => `- ${f.text}`).join("\n")
-      }\nUse these without asking the user to repeat them. If two facts disagree, trust the newer date and say so out loud.`
-    : "You have no stored facts about this user yet.";
+      }\nThese were retrieved for THIS turn regardless of what was asked. Use them without asking the user to repeat them. If two facts disagree, trust the newer date and say so out loud.`
+    : "You have no stored facts about this user yet. This is a genuinely empty record, not a failed lookup - the conditions and allergies are fetched every turn with a fixed query, so an empty list means they have never told you.";
 
   const system = [
     BASE_PROMPT,

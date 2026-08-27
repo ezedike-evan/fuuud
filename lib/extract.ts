@@ -118,9 +118,16 @@ export async function extractFacts(
     return object.facts;
   };
 
+  const described = await describeModel().catch(() => null);
+
   try {
     return await run(await extractModel());
   } catch (error) {
+    // Extraction now follows the chosen chat model, so the two ids are usually
+    // identical. Retrying the same model on the same prompt is not a fallback,
+    // it is just a second bill — only retry when KM_EXTRACT_MODEL actually
+    // pointed the gate somewhere else.
+    if (!described || described.extract === described.chat) throw error;
     /*
      * The extraction model is a per-provider DEFAULT written into
      * lib/providers.ts, not something the person chose — and unlike the chat
@@ -133,7 +140,6 @@ export async function extractFacts(
      * job, so running it there costs a little more but keeps memory working,
      * which is the entire product.
      */
-    const described = await describeModel().catch(() => null);
     console.warn(
       `[kitchen-memory] extraction model ${described?.extract ?? "(unknown)"} failed ` +
         `(${error instanceof Error ? error.message : String(error)}) — ` +

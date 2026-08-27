@@ -309,8 +309,11 @@ function ProviderRow({
               </select>
               {modelNote && <p className="mt-2 text-[11.5px] text-warn">{modelNote}</p>}
               <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">
-                The extraction gate stays on {status.provider === "groq" ? "a small Groq model" : "the small model"} whatever
-                you pick here — it runs on every turn, so an expensive model there costs you money for no gain.
+                This model answers you <em>and</em> reads each turn for facts worth remembering. It
+                used to be two models — the gate ran on a small default nobody picked, and when that
+                one could not produce the required JSON, every turn failed to save while the
+                conversation looked fine. Set <code className="font-mono">KM_EXTRACT_MODEL</code> to
+                split them again.
               </p>
             </div>
           )}

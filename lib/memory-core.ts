@@ -75,7 +75,7 @@ const KIND_NAMESPACE: Record<FactKind, (a: string) => string> = {
 export type { FactKind, RecalledFact };
 export {
   resolveConflicts, isOffTheRecord, claimsOfKind,
-  factBody, factDate, factKind, retractionTarget, RELEVANCE_DISTANCE,
+  factBody, factDate, factKind, retractionTarget, RELEVANCE_DISTANCE, unionFacts,
 } from "./facts.ts";
 
 /** Read durable clinical facts. Call ONCE per turn, never per route. */
@@ -83,6 +83,31 @@ export const recallHealth = (address: string, query: string) => recallFrom(healt
 
 /** Read reactions and preferences. */
 export const recallFeedback = (address: string, query: string) => recallFrom(feedbackNs(address), query);
+
+/*
+ * STABLE QUERIES.
+ *
+ * Recall is a similarity search with a relevance floor, so WHAT YOU ASK FOR
+ * decides what the model gets to see. Asking with the person's own turn means
+ * "something light for dinner" is the query against their medical record —
+ * and `allergy | groundnuts - hives` sits nowhere near that in embedding
+ * space, so it falls below the floor and the agent answers as though the
+ * allergy did not exist.
+ *
+ * An allergy is not relevant only when the person happens to mention it. These
+ * queries are fixed so the safety-critical facts come back on EVERY turn,
+ * whatever was asked.
+ */
+export const SAFETY_QUERY =
+  "medical conditions, allergies, intolerances and foods to avoid";
+export const PREFERENCE_QUERY =
+  "foods disliked, meals rejected and symptoms after eating";
+
+/** Conditions, allergies and clearances — retrieved regardless of the question. */
+export const recallSafety = (address: string) => recallFrom(healthNs(address), SAFETY_QUERY);
+
+/** Standing preferences — likewise always relevant to a meal suggestion. */
+export const recallPreferences = (address: string) => recallFrom(feedbackNs(address), PREFERENCE_QUERY);
 
 /**
  * The relevance floor is an EMBEDDING distance, so it only means anything

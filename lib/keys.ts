@@ -2,6 +2,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { ORDER, PROVIDERS, isProvider, type Provider } from "./providers.ts";
+import type { KeyBag } from "./model-select.ts";
 
 /**
  * Bring-your-own-key storage.
@@ -24,12 +25,12 @@ import { ORDER, PROVIDERS, isProvider, type Provider } from "./providers.ts";
 
 export const KEYS_COOKIE = "km_keys";
 
-/** Selected model per provider, plus which provider is pinned. */
-export type KeyBag = {
-  keys: Partial<Record<Provider, string>>;
-  models: Partial<Record<Provider, string>>;
-  active?: Provider;
-};
+/**
+ * Selected model per provider, plus which provider is pinned. Defined in
+ * ./model-select so the selection rules stay testable without this module's
+ * `server-only` guard and cookie access.
+ */
+export type { KeyBag };
 
 const EMPTY: KeyBag = { keys: {}, models: {} };
 
