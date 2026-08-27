@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
+import { openKeysPanel } from "./api-keys-menu";
+import { NO_KEY_CODE } from "@/lib/providers";
 
 const STARTERS = [
   "I'm diabetic and groundnuts give me hives",
@@ -153,17 +155,41 @@ export default function Chat() {
       {/* A failed turn must never look like a silent one. The route fails closed
           when memory is unreachable, so this is the only place the person finds
           out the agent is answering blind — say it, don't swallow it. */}
-      {error && (
-        <p
-          role="alert"
-          className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] border border-dashed border-line px-4 py-3.5 text-[13px] leading-relaxed text-ink-muted"
-        >
-          {error.message || "Something went wrong."}
-          <button type="button" onClick={() => reload()} className="chip">
-            Try again
-          </button>
-        </p>
-      )}
+      {error && (() => {
+        /*
+         * A missing model key is not a transient failure, so offering "Try
+         * again" is a lie — retrying calls the same route with the same absent
+         * key and fails identically. Send the person to the thing that
+         * actually fixes it instead.
+         */
+        const needsKey = error.message.includes(NO_KEY_CODE);
+        const text = needsKey
+          ? error.message.split(`${NO_KEY_CODE}:`).pop()!.trim()
+          : error.message || "Something went wrong.";
+
+        return (
+          <p
+            role="alert"
+            className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] border border-dashed px-4 py-3.5 text-[13px] leading-relaxed text-ink-muted"
+            style={{ borderColor: needsKey ? "var(--c-warn-line)" : "var(--c-line)" }}
+          >
+            {text}
+            {needsKey ? (
+              <button type="button" onClick={() => openKeysPanel()} className="chip">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="3.1" />
+                  <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />
+                </svg>
+                Add a model key
+              </button>
+            ) : (
+              <button type="button" onClick={() => reload()} className="chip">
+                Try again
+              </button>
+            )}
+          </p>
+        );
+      })()}
 
       <div className="flex-1" />
 

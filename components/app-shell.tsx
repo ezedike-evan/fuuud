@@ -3,6 +3,7 @@ import Wordmark from "./wordmark";
 import ThemeToggle from "./theme-toggle";
 import VoiceToggle from "./voice-toggle";
 import AccountChip from "./account-chip";
+import ApiKeysMenu from "./api-keys-menu";
 
 const NAV = [
   { href: "/agent", label: "Agent" },
@@ -39,6 +40,7 @@ export default function AppShell({
         <div className="flex items-center gap-2 justify-self-end">
           <ThemeToggle />
           <VoiceToggle />
+          <ApiKeysMenu />
           <AccountChip address={address} />
         </div>
       </header>

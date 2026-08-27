@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   let model, described;
   try {
     model = await chatModel();
-    described = describeModel();
+    described = await describeModel();
   } catch (error) {
     return new Response(
       error instanceof Error ? error.message : "No model provider configured.",
