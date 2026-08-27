@@ -59,7 +59,7 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
       </div>
 
       {/* What the plan was built from. The memory doing visible work. */}
-      {!week.blocked && (week.profile.allergies.length || week.profile.conditions.length || week.profile.dislikes.length) ? (
+      {!week.blocked && (week.profile.allergies.length || week.profile.conditions.length || week.profile.dislikes.length || week.profile.likes.length || week.profile.goals.length) ? (
         <div className="mt-6 flex flex-wrap gap-2">
           {week.profile.allergies.map((a) => (
             <span key={`a-${a}`} className="chip text-[12px]">
@@ -71,6 +71,18 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
             <span key={`c-${c}`} className="chip text-[12px]">
               <span className="font-mono uppercase tracking-[0.06em] text-[10px] text-accent">condition</span>
               {c}
+            </span>
+          ))}
+          {week.profile.likes.map((l) => (
+            <span key={`l-${l}`} className="chip text-[12px]">
+              <span className="font-mono uppercase tracking-[0.06em] text-[10px] text-accent">likes</span>
+              {l}
+            </span>
+          ))}
+          {week.profile.goals.map((g) => (
+            <span key={`g-${g}`} className="chip text-[12px]">
+              <span className="font-mono uppercase tracking-[0.06em] text-[10px] text-accent">goal</span>
+              {g}
             </span>
           ))}
           {week.profile.dislikes.map((d) => (

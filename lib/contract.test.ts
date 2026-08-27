@@ -243,7 +243,7 @@ test("a dislike is never a safety rule", () => {
   assert.equal(screenReply("Jollof rice with carrots and peas", profile).safe, true);
   assert.match(
     buildSafetyConstraintsText({ cleared: true, dislikes: ["most vegetables"] }),
-    /never overrides an allergy or a condition/,
+    /never override an allergy or a condition/,
   );
 });
 
@@ -487,4 +487,56 @@ test("the week is seven consecutive local dates and rolls over a month end", () 
   assert.equal(week[0], "2026-08-28");
   assert.equal(week[6], "2026-09-03", "must roll across a month boundary");
   assert.equal(new Set(week).size, 7, "no repeats");
+});
+
+
+/*
+ * Reported from a live run: "I have insomnia", "I'm cutting back on sugar" and
+ * "I like more veggies" were all lost. Two of them had no fact kind that could
+ * hold them, so the gate correctly stored nothing — the contract was the bug.
+ */
+test("a stated like reaches the model, not just a dislike", () => {
+  const text = buildSafetyConstraintsText({ cleared: true, likes: ["vegetables"] });
+  assert.match(text, /They like: vegetables/);
+  assert.match(text, /rather than merely avoiding what they cannot have/);
+});
+
+test("a dietary goal reaches the model", () => {
+  const text = buildSafetyConstraintsText({ cleared: true, goals: ["cutting back on sugar"] });
+  assert.match(text, /working toward: cutting back on sugar/);
+  assert.match(text, /do not talk them out of it/);
+});
+
+test("insomnia is a recognised condition with real dietary advice", () => {
+  assert.deepEqual(normalizeConditions(["insomnia"]), ["insomnia"]);
+  assert.deepEqual(normalizeConditions(["trouble sleeping"]), ["insomnia"]);
+  const text = buildSafetyConstraintsText({ conditions: ["insomnia"], cleared: true });
+  assert.match(text, /For insomnia, avoid:/);
+  assert.match(text, /Coffee, tea and energy drinks/);
+});
+
+test("a caffeinated meal is screened against insomnia", () => {
+  const profile = { conditions: ["insomnia"], allergies: [] };
+  assert.equal(screenReply("Suya with a cold cola before bed", profile).safe, false);
+  assert.equal(screenReply("Akamu with moi moi", profile).safe, true);
+});
+
+test("likes and goals are preferences, never safety rules", () => {
+  const text = buildSafetyConstraintsText({
+    cleared: true, likes: ["vegetables"], goals: ["cutting back on sugar"], dislikes: ["okra"],
+  });
+  assert.match(text, /never override an allergy or a condition/);
+  // A liked food is never a reason to call something unsafe.
+  assert.equal(screenReply("Efo riro with vegetables", { likes: ["vegetables"] }).safe, true);
+});
+
+test("all three of the reported statements now have a home", () => {
+  // insomnia -> condition, cutting back on sugar -> goal, likes veg -> preference
+  const text = buildSafetyConstraintsText({
+    conditions: ["insomnia"], allergies: [], cleared: true,
+    goals: ["cutting back on sugar"], likes: ["vegetables"],
+  });
+  for (const expected of [/insomnia/, /cutting back on sugar/, /vegetables/]) {
+    assert.match(text, expected);
+  }
 });

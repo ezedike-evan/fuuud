@@ -53,6 +53,9 @@ const CONDITION_BLOCK_TOKENS: Record<string, string[]> = {
   high_cholesterol: ["palm oil", "deep-fried", "fried", "butter", "lard", "organ meat", "liver", "offal", "kidney", "gizzard", "fatty meat", "pork", "full cream", "ice cream", "trans fat"],
   kidney_disease: ["salt", "salty", "seasoning cube", "bouillon", "maggi", "processed meat", "sausage", "bacon", "canned", "instant noodle", "organ meat", "offal"],
   gout: ["organ meat", "liver", "offal", "kidney", "gizzard", "sardine", "anchovy", "shellfish", "prawn", "shrimp", "crab", "crayfish", "red meat", "beer", "alcohol"],
+  // Insomnia is not a food allergy, but it is one of the conditions where what
+  // and when you eat genuinely matters, and it was missing entirely.
+  insomnia: ["coffee", "caffeine", "espresso", "energy drink", "cola", "green tea", "black tea", "chocolate", "alcohol"],
   pregnancy: ["alcohol", "raw", "undercooked", "unpasteurized", "unpasteurised", "soft cheese", "pate", "liver", "swordfish", "shark", "king mackerel", "smoked fish"],
 };
 
@@ -64,6 +67,7 @@ const CONDITION_AVOID_LABELS: Record<string, string[]> = {
   high_cholesterol: ["Deep-fried foods and excess palm oil", "Organ meats and fatty cuts", "Butter, cream and trans fats"],
   kidney_disease: ["Excess salt and seasoning cubes", "Processed and cured meats", "Organ meats"],
   gout: ["Organ meats and red meat", "Shellfish and oily fish", "Beer and alcohol"],
+  insomnia: ["Coffee, tea and energy drinks, especially after midday", "Alcohol close to bedtime", "Heavy, fatty or very spicy meals late in the evening"],
   pregnancy: ["Alcohol", "Raw or undercooked foods", "Unpasteurised dairy and high-mercury fish"],
 };
 
@@ -77,6 +81,7 @@ export const CONDITION_LABELS: Record<string, string> = {
   gout: "gout",
   pregnancy: "pregnancy",
   anemia: "anemia",
+  insomnia: "insomnia",
 };
 
 const CONDITION_SYNONYMS: Record<string, string> = {
@@ -89,6 +94,8 @@ const CONDITION_SYNONYMS: Record<string, string> = {
   gout: "gout",
   anemia: "anemia", anaemia: "anemia", "low iron": "anemia", "iron deficiency": "anemia",
   pregnancy: "pregnancy", pregnant: "pregnancy",
+  insomnia: "insomnia", insomniac: "insomnia", "trouble sleeping": "insomnia",
+  "can't sleep": "insomnia", "cannot sleep": "insomnia", "sleeplessness": "insomnia",
 };
 
 // Phrases that contain an allergen token but are NOT that allergen.
@@ -99,6 +106,10 @@ export type HealthProfile = {
   allergies?: string[];
   /** Standing preferences. Shape suggestions; never a safety rule. */
   dislikes?: string[];
+  /** Foods they actively like. The reason a plan is worth following. */
+  likes?: string[];
+  /** Dietary aims they are working toward — "cutting back on sugar". */
+  goals?: string[];
   /** They explicitly told us they have no allergies / no conditions. */
   cleared?: boolean;
 };
@@ -263,12 +274,29 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
     lines.push("- They have told you they have no known allergies. Do not keep asking.");
   }
 
+  /*
+   * Preferences come AFTER the safety lines and are marked as preferences, so
+   * nothing here can be mistaken for a hard rule. They are not decoration: a
+   * plan built only from prohibitions is inoffensive and unappealing, and
+   * nobody follows it.
+   */
   const dislikes = normalizeList(profile.dislikes);
+  const likes = normalizeList(profile.likes);
+  const goals = normalizeList(profile.goals);
+
+  if (likes.length) {
+    lines.push(`- They like: ${likes.join("; ")}. Build meals around these where the constraints allow it, rather than merely avoiding what they cannot have.`);
+  }
+  if (goals.length) {
+    lines.push(`- They are working toward: ${goals.join("; ")}. Respect this in every meal, and do not talk them out of it.`);
+  }
   if (dislikes.length) {
     lines.push(
       `- They dislike: ${dislikes.join("; ")}. Work around it rather than serving it and hoping. Do not hide a disliked food inside a dish and present it as a solution.`,
-      "- A dislike is a preference, not a safety rule: it never overrides an allergy or a condition, and it is never a reason to call a meal unsafe.",
     );
+  }
+  if (dislikes.length || likes.length || goals.length) {
+    lines.push("- Likes, dislikes and goals are preferences, not safety rules: they never override an allergy or a condition, and they are never a reason to call a meal unsafe.");
   }
 
   return lines.join("\n");

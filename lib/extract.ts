@@ -16,7 +16,7 @@ import type { FactKind } from "./memory-contract.ts";
 const FactSchema = z.object({
   facts: z.array(
     z.object({
-      kind: z.enum(["condition", "allergy", "rejection", "symptom", "dislike", "clearance"]),
+      kind: z.enum(["condition", "allergy", "rejection", "symptom", "dislike", "preference", "goal", "clearance"]),
       text: z.string().describe("The fact in plain words, third person, no date."),
     }),
   ),
@@ -34,10 +34,23 @@ WRITE a fact only when the USER asserts one of these:
              stops the agent asking the same question every session.
 - rejection: a suggestion refused WITH a reason ("no, palm oil upsets me")
 - symptom:   a symptom experienced after eating something
-- dislike:   a STANDING food preference, not a one-off mood ("I don't like a
-             lot of vegetables", "I can't stand okra", "I hate fish"). Write
-             only the THING disliked, not a sentence: "most vegetables",
-             "okra", "fish". The kind already says it is a dislike.
+- dislike:   a STANDING food they avoid by taste ("I don't like a lot of
+             vegetables", "I can't stand okra"). Write only the THING:
+             "most vegetables", "okra".
+- preference: a STANDING food they LIKE ("I like more veggies", "I love pepper
+             soup", "I'm a big fish person"). Write only the THING:
+             "vegetables", "pepper soup", "fish". This is how meals get planned
+             around what someone actually enjoys, so do not skip it as small
+             talk — a stated like is as durable as a stated dislike.
+- goal:      a dietary aim they are working toward ("I'm cutting back on
+             sugar", "trying to eat more protein", "eating less red meat").
+             Write it as the aim: "cutting back on sugar", "more protein".
+             Not a condition - they are not claiming a diagnosis. Not a dislike
+             - they may well like the thing they are cutting.
+
+LIKES AND GOALS ARE FACTS, NOT CHATTER. "I like more veggies" and "I'm cutting
+back on sugar" are exactly the kind of thing that gets dismissed as small talk
+and then has to be repeated every session. Write them.
 
 TELL A DISLIKE FROM A CRAVING. A dislike is durable and about them ("I don't
 eat pork", "I'm not a veg person"). A craving is about right now ("I fancy

@@ -26,6 +26,8 @@ const KIND_COLOR: Record<string, string> = {
   clearance: "var(--c-accent)",
   symptom: "var(--c-warn)",
   dislike: "var(--c-ink-muted)",
+  preference: "var(--c-accent)",
+  goal: "var(--c-accent)",
 };
 
 export default async function SettingsPage() {
