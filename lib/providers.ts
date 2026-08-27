@@ -11,10 +11,13 @@ export type ProviderInfo = {
   label: string;
   /** Env var the same key is read from when the operator sets it server-side. */
   env: string;
-  /** Default model for the conversation. */
+  /**
+   * Default model, used for BOTH the conversation and the extraction gate
+   * until the person picks one. There is deliberately no separate extract
+   * default: a second id this repo guessed at, running on every turn, is how
+   * the write gate ended up failing silently against a model nobody chose.
+   */
   chat: string;
-  /** Default model for the extraction gate — runs every turn, keep it small. */
-  extract: string;
   /** Where a person goes to mint one of these. */
   console: string;
   /** Shown as the input placeholder so a pasted key can be eyeballed. */
@@ -32,7 +35,6 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
     label: "Anthropic",
     env: "ANTHROPIC_API_KEY",
     chat: "claude-opus-5",
-    extract: "claude-haiku-4-5",
     console: "https://console.anthropic.com/settings/keys",
     hint: "sk-ant-…",
     models: ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"],
@@ -41,7 +43,6 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
     label: "OpenAI",
     env: "OPENAI_API_KEY",
     chat: "gpt-4o",
-    extract: "gpt-4o-mini",
     console: "https://platform.openai.com/api-keys",
     hint: "sk-…",
     models: ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "o4-mini"],
@@ -50,7 +51,6 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
     label: "Google Gemini",
     env: "GOOGLE_GENERATIVE_AI_API_KEY",
     chat: "gemini-2.5-pro",
-    extract: "gemini-2.5-flash",
     console: "https://aistudio.google.com/apikey",
     hint: "AIza…",
     models: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
@@ -59,7 +59,6 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
     label: "xAI Grok",
     env: "XAI_API_KEY",
     chat: "grok-3",
-    extract: "grok-3-mini",
     console: "https://console.x.ai",
     hint: "xai-…",
     models: ["grok-4", "grok-3", "grok-3-mini"],
@@ -68,7 +67,6 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
     label: "Groq",
     env: "GROQ_API_KEY",
     chat: "llama-3.3-70b-versatile",
-    extract: "llama-3.1-8b-instant",
     console: "https://console.groq.com/keys",
     hint: "gsk_…",
     models: [

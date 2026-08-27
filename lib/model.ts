@@ -104,20 +104,29 @@ async function model(role: "chat" | "extract"): Promise<LanguageModelV1> {
 }
 
 /**
- * The model id for a role. The person's pick in Settings applies to the chat
- * model only — the extraction gate stays on the small default, because letting
- * someone point the write gate at an expensive model costs them money on every
- * single turn for no benefit.
+ * The model id for a role.
+ *
+ * Extraction follows the model the person actually chose. It used to run on a
+ * separate small default per provider, which was a guess this repo made on
+ * their behalf and never checked against the provider's live roster — so the
+ * write gate could fail on every single turn while the conversation itself
+ * looked perfectly healthy, because the two ran on different models. The
+ * chosen model is known to work: it just answered.
+ *
+ * KM_EXTRACT_MODEL still overrides, for anyone who would rather pay the cheap
+ * tier for the gate. That is the trade being made here — extraction runs on
+ * every turn, so following the chat model costs more per turn than a small
+ * fixed one. Correctness first: a cheaper gate that silently drops someone's
+ * allergy is not a saving.
  */
 function modelId(provider: Provider, role: "chat" | "extract", bag: KeyBag): string {
-  if (role === "extract") {
-    return process.env.KM_EXTRACT_MODEL?.trim() || PROVIDERS[provider].extract;
-  }
-  return (
+  const chat =
     bag.models[provider]?.trim() ||
     process.env.KM_CHAT_MODEL?.trim() ||
-    PROVIDERS[provider].chat
-  );
+    PROVIDERS[provider].chat;
+
+  if (role === "extract") return process.env.KM_EXTRACT_MODEL?.trim() || chat;
+  return chat;
 }
 
 /** The model that answers the person. */

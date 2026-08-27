@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { generateObject } from "ai";
-import { extractModel } from "./model.ts";
+import { extractModel, chatModel, describeModel } from "./model.ts";
 import type { FactKind } from "./memory-contract.ts";
 
 /**
@@ -108,11 +108,46 @@ export async function extractFacts(
     ? `The assistant asked:\n"""\n${assistantAsked.trim()}\n"""\n\nThe user replied:\n"""\n${userTurn}\n"""`
     : userTurn;
 
-  const { object } = await generateObject({
-    model: await extractModel(),
-    schema: FactSchema,
-    system: EXTRACTION_PROMPT,
-    prompt,
-  });
-  return object.facts;
+  const run = async (model: Awaited<ReturnType<typeof extractModel>>) => {
+    const { object } = await generateObject({
+      model,
+      schema: FactSchema,
+      system: EXTRACTION_PROMPT,
+      prompt,
+    });
+    return object.facts;
+  };
+
+  try {
+    return await run(await extractModel());
+  } catch (error) {
+    /*
+     * The extraction model is a per-provider DEFAULT written into
+     * lib/providers.ts, not something the person chose — and unlike the chat
+     * model it is never checked against the provider's live roster. When that
+     * id is retired or unavailable on their account, every single turn fails
+     * to save while the conversation itself looks perfectly healthy. That is
+     * exactly the failure this fallback exists for.
+     *
+     * The chat model is known good: it just answered. Extraction is a small
+     * job, so running it there costs a little more but keeps memory working,
+     * which is the entire product.
+     */
+    const described = await describeModel().catch(() => null);
+    console.warn(
+      `[kitchen-memory] extraction model ${described?.extract ?? "(unknown)"} failed ` +
+        `(${error instanceof Error ? error.message : String(error)}) — ` +
+        `retrying on the chat model ${described?.chat ?? ""}.`,
+    );
+    try {
+      return await run(await chatModel());
+    } catch (fallbackError) {
+      const first = error instanceof Error ? error.message : String(error);
+      const second = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(
+        `extraction failed on ${described?.extract ?? "extract model"} (${first}); ` +
+          `retry on ${described?.chat ?? "chat model"} also failed (${second})`,
+      );
+    }
+  }
 }

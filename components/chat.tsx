@@ -135,6 +135,12 @@ export default function Chat() {
                     </div>
                   )}
 
+                  {open && stored?.failed && (
+                    <p className="fact mt-3 rounded-[8px] border border-danger-line bg-recess px-3.5 py-3 text-danger">
+                      {stored.failed}
+                    </p>
+                  )}
+
                   {open && recalled.length > 0 && (
                     <ul className="mt-3 flex flex-col gap-1.5 rounded-[8px] border border-line-soft bg-recess px-3.5 py-3">
                       {recalled.map((fact, i) => (
@@ -160,13 +166,21 @@ export default function Chat() {
                     </span>
                     <span className="flex flex-wrap items-center gap-2">
                       {stored?.failed ? (
-                        <span
+                        /*
+                          A tooltip is the wrong place for the only copy of an
+                          error. "could not save this turn" tells you something
+                          broke but not what, and the reason is the whole point
+                          — it names the model or the relayer call that failed.
+                        */
+                        <button
+                          type="button"
+                          onClick={() => setOpenOn(open ? null : m.id)}
+                          aria-expanded={open}
                           className="rounded-full px-2.5 py-1 text-[11px] text-danger"
                           style={{ background: "color-mix(in oklab, var(--c-danger) 12%, transparent)" }}
-                          title={stored.failed}
                         >
-                          could not save this turn
-                        </span>
+                          could not save this turn — why?
+                        </button>
                       ) : stored?.written.length ? (
                         <span
                           className="rounded-full px-2.5 py-1 text-[11px]"
