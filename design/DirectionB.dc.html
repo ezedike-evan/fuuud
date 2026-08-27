@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&family=Schibsted+Grotesk:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+      background: #faf6ef; color: #211d18; -webkit-font-smoothing: antialiased; }
+    a { color: #a8542b; text-decoration: none; }
+    a:hover { color: #7d3d1e; }
+  </style>
+</helmet>
+
+<div style="width: 900px; height: 640px; display: flex; flex-direction: column; padding: 40px 44px;
+  background: #faf6ef; gap: 26px;">
+
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <span style="font-family: 'Newsreader', Georgia, serif; font-size: 21px;">Kitchen Memory</span>
+    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #9c8f7d;">Direction B · Almanac</span>
+  </div>
+
+  <div style="border-top: 2px solid #211d18; padding-top: 22px;">
+    <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 44px;
+      line-height: 1.06; letter-spacing: -0.015em; max-width: 16ch;">
+      A kitchen record<br><em>that keeps itself.</em>
+    </h1>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-grow: 1;">
+
+    <div style="border: 1px solid #ded3c2; border-radius: 3px; padding: 20px; background: #fffdf9;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em;
+        text-transform: uppercase; color: #9c8f7d; margin-bottom: 14px;">The ledger</div>
+      <div style="display: flex; flex-direction: column; gap: 11px;">
+        <div style="display: flex; gap: 12px; padding-bottom: 11px; border-bottom: 1px solid #ece3d5;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #9c8f7d; width: 62px;">08‑14</span>
+          <span style="font-size: 13px; flex-grow: 1;">Type 2 diabetes</span>
+        </div>
+        <div style="display: flex; gap: 12px; padding-bottom: 11px; border-bottom: 1px solid #ece3d5;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #9c8f7d; width: 62px;">08‑14</span>
+          <span style="font-size: 13px; flex-grow: 1; color: #a8542b;">Groundnuts — hives</span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #9c8f7d; width: 62px;">03‑02</span>
+          <span style="font-size: 13px; flex-grow: 1; color: #b3a795; text-decoration: line-through;">Shellfish — hives</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="border: 1px solid #ded3c2; border-radius: 3px; padding: 18px 20px; background: #fffdf9; flex-grow: 1;">
+        <p style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 17px; line-height: 1.55;">
+          “Boiled yam with efo riro, light on the palm oil. Skip the swallow tonight.”
+        </p>
+        <div style="margin-top: 12px; padding-top: 11px; border-top: 1px solid #ece3d5;
+          font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9c8f7d;">
+          recalled: diabetes · groundnuts
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px;
+        background: #211d18; color: #faf6ef; border-radius: 3px; font-size: 14px;">
+        Continue with Google
+      </div>
+    </div>
+  </div>
+
+  <p style="margin: 0; font-size: 11.5px; line-height: 1.5; color: #8a7d6b; border-top: 1px solid #ded3c2; padding-top: 14px;">
+    Warmer, editorial, paper-like. Trades the clinical precision of Direction A for approachability —
+    reads as a kept journal rather than a medical record. Weaker at conveying encryption and rigour.
+  </p>
+</div>
+</x-dc>
+</body>
+</html>

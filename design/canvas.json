@@ -1,0 +1,111 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Landing"
+    },
+    {
+      "id": "page-2",
+      "name": "App screens"
+    },
+    {
+      "id": "page-3",
+      "name": "Directions"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Landing.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 2980,
+      "page": "page-1",
+      "title": "Landing page",
+      "print": "flow"
+    },
+    {
+      "file": "SignIn.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 860,
+      "page": "page-2",
+      "title": "Sign in"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 1320,
+      "y": 0,
+      "w": 1200,
+      "h": 860,
+      "page": "page-2",
+      "title": "Agent"
+    },
+    {
+      "file": "Practitioners.dc.html",
+      "x": 0,
+      "y": 1000,
+      "w": 1200,
+      "h": 860,
+      "page": "page-2",
+      "title": "Practitioners"
+    },
+    {
+      "file": "Memory.dc.html",
+      "x": 1320,
+      "y": 1000,
+      "w": 1200,
+      "h": 860,
+      "page": "page-2",
+      "title": "Memory"
+    },
+    {
+      "file": "DirectionB.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 900,
+      "h": 640,
+      "page": "page-3",
+      "title": "Direction B \u2014 Almanac"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-landing",
+      "x": 1320,
+      "y": 0,
+      "w": 400,
+      "page": "page-1",
+      "text": "Landing page.\nOne offer, one action, repeated top and bottom. The three doubts a visitor to a health app actually has \u2014 is my data safe, do I need a wallet, can I delete it \u2014 are answered in order rather than buried.\n\nThe amber card is deliberate: leading with what the product CAN'T do yet buys the credibility the rest of the page spends.\n\n[CONTACT EMAIL] in the footer needs your real address."
+    },
+    {
+      "id": "note-voice",
+      "x": 1320,
+      "y": 920,
+      "w": 330,
+      "page": "page-2",
+      "text": "The Voice button is placed but its destination isn't designed yet \u2014 I didn't want to invent a whole mode you hadn't asked for. Worth doing: hands are busy when you're cooking, and voice sidesteps literacy and bandwidth in a way typing doesn't."
+    },
+    {
+      "id": "note-alt",
+      "x": 0,
+      "y": -130,
+      "w": 560,
+      "page": "page-3",
+      "text": "Alternate direction, low-fi. Kept beside the deliverable so the aesthetic call stays yours."
+    },
+    {
+      "id": "note-controls",
+      "x": 2640,
+      "y": 120,
+      "w": 330,
+      "page": "page-2",
+      "text": "New in the top bar on every app screen: theme toggle (sun/moon segments) and a Voice control, left of the wallet chip.\n\nThe light-mode screen is reverted \u2014 the toggle stays. Light palette is derived and on file if you want it back."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

@@ -1,0 +1,230 @@
+@import "tailwindcss";
+
+/*
+ * Tokens are indirected through plain custom properties so a single
+ * [data-theme] flip (or the OS preference) re-colours every utility. The
+ * @theme block only ever references the vars — it never holds a literal.
+ *
+ * The visual language is stark monochrome: true black and true white, hairline
+ * borders, tight radii, one warm accent used sparingly. Colour is reserved for
+ * the things that must not be missed — a stored fact, an unsafe meal, a revoke.
+ */
+@theme {
+  --color-canvas: var(--c-canvas);
+  --color-recess: var(--c-recess);
+  --color-surface: var(--c-surface);
+  --color-surface-hi: var(--c-surface-hi);
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+
+  --color-ink: var(--c-ink);
+  --color-ink-strong: var(--c-ink-strong);
+  --color-ink-muted: var(--c-ink-muted);
+  --color-ink-faint: var(--c-ink-faint);
+
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-line: var(--c-accent-line);
+  --color-accent-wash: var(--c-accent-wash);
+
+  --color-warn: var(--c-warn);
+  --color-warn-line: var(--c-warn-line);
+  --color-danger: var(--c-danger);
+  --color-danger-line: var(--c-danger-line);
+
+  --font-display: var(--f-display);
+  --font-sans: var(--f-sans);
+  --font-mono: var(--f-mono);
+
+  --radius-card: 0.625rem;
+  --radius-pill: 0.5rem;
+}
+
+/* Dark is the designed default. */
+:root {
+  --c-canvas: #000000;
+  --c-recess: #000000;
+  --c-surface: #0a0a0a;
+  --c-surface-hi: #171717;
+  --c-line: #262626;
+  --c-line-soft: #1a1a1a;
+
+  --c-ink: #ededed;
+  --c-ink-strong: #ffffff;
+  --c-ink-muted: #a1a1a1;
+  --c-ink-faint: #6e6e6e;
+
+  /* One warm note against the monochrome — identity, never chrome. */
+  --c-accent: #f0dcb0;
+  --c-accent-ink: #000000;
+  --c-accent-line: #3a3428;
+  --c-accent-wash: rgb(240 220 176 / 0.06);
+
+  --c-warn: #d9a441;
+  --c-warn-line: #3a3226;
+  --c-danger: #e5735a;
+  --c-danger-line: #3d2620;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --c-canvas: #ffffff;
+  --c-recess: #fafafa;
+  --c-surface: #ffffff;
+  --c-surface-hi: #f5f5f5;
+  --c-line: #e5e5e5;
+  --c-line-soft: #ededed;
+
+  --c-ink: #171717;
+  --c-ink-strong: #000000;
+  --c-ink-muted: #5c5c5c;
+  --c-ink-faint: #8f8f8f;
+
+  /* Deepened so it still carries contrast on paper-white. */
+  --c-accent: #9a7434;
+  --c-accent-ink: #ffffff;
+  --c-accent-line: #e3d3b0;
+  --c-accent-wash: rgb(154 116 52 / 0.06);
+
+  --c-warn: #8a6410;
+  --c-warn-line: #e3d7b8;
+  --c-danger: #b8492a;
+  --c-danger-line: #eccec2;
+
+  color-scheme: light;
+}
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+  body {
+    background: var(--c-canvas);
+    color: var(--c-ink);
+    font-family: var(--f-sans);
+  }
+
+  ::selection { background: var(--c-ink-strong); color: var(--c-canvas); }
+
+  :focus-visible { outline: 2px solid var(--c-ink-muted); outline-offset: 2px; }
+
+  /*
+   * Motion is decoration here, never the thing that reveals content. Anything
+   * that only moves is stopped outright; the framer-motion pieces check
+   * useReducedMotion and render their final state instead.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-card);
+    background: var(--c-surface);
+  }
+
+  /* Stored facts are records, not prose. */
+  .fact {
+    font-family: var(--f-mono);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--c-ink-faint);
+  }
+
+  /*
+   * The primary action inverts the page rather than introducing a colour —
+   * on black it is a white button, on white a black one. Nothing else on the
+   * screen is allowed to be that loud.
+   */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--c-ink-strong);
+    color: var(--c-canvas);
+    font-weight: 500;
+    transition: opacity 0.15s ease;
+  }
+  .cta:hover { opacity: 0.86; }
+
+  /*
+   * A group of controls sharing one hairline outline — the nav, the
+   * Ask/Remember switch. Reads as a single object rather than loose buttons.
+   */
+  .segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-pill);
+    padding: 0.1875rem;
+    background: var(--c-surface);
+  }
+  .segmented > * {
+    border-radius: calc(var(--radius-pill) - 0.1875rem);
+    padding: 0.4375rem 0.8125rem;
+    color: var(--c-ink-muted);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .segmented > *:hover { color: var(--c-ink); }
+  .segmented > [data-on="true"] {
+    background: var(--c-surface-hi);
+    color: var(--c-ink-strong);
+  }
+
+  /*
+   * The landing marquee. Two identical copies of the track scroll by, and the
+   * animation resets at -50% — the seam lands exactly where the second copy
+   * starts, so the band reads as endless. Masked at both edges so words fade
+   * rather than getting sliced by the viewport.
+   */
+  .km-marquee {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  .km-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: km-marquee 42s linear infinite;
+  }
+
+  @keyframes km-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /*
+   * A provenance chip. Every one of these names a real stored fact the answer
+   * was built from — the whole product claim, made clickable.
+   */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    border: 1px solid var(--c-line);
+    border-radius: calc(var(--radius-card) - 0.25rem);
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+    color: var(--c-ink-muted);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .chip:hover { border-color: var(--c-ink-faint); color: var(--c-ink); }
+}

@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+      background: #f7f6f3;
+      color: #1a1c19;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: #2f8f63; text-decoration: none; }
+    a:hover { color: #1f6d49; }
+  </style>
+</helmet>
+
+<div style="width: 1200px; height: 860px; display: flex; flex-direction: column; background:
+  radial-gradient(70rem 30rem at 22% -8%, rgba(47,143,99,0.07), transparent 65%), #f7f6f3;">
+
+  <!-- top bar -->
+  <div style="display: flex; align-items: center; gap: 40px; padding: 20px 40px; border-bottom: 1px solid #e2e0d9;">
+    <div style="display: flex; align-items: center; gap: 11px;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2f8f63" stroke-width="1.4" stroke-linecap="round">
+        <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z"/>
+        <path d="M9 7.5c0-1.6 1.2-2 1.2-3.2M14.4 7.5c0-1.6 1.2-2 1.2-3.2"/>
+      </svg>
+      <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.015em;">Kitchen Memory</span>
+    </div>
+    <div style="display: flex; gap: 4px; font-size: 13.5px;">
+      <span style="padding: 6px 12px; border-radius: 7px; background: #e8e6e0; color: #1a1c19;">Agent</span>
+      <span style="padding: 6px 12px; border-radius: 7px; color: #63685f;">Practitioners</span>
+      <span style="padding: 6px 12px; border-radius: 7px; color: #63685f;">Memory</span>
+    </div>
+    <div style="flex-grow: 1;"></div>
+
+    <div style="display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #dcdad2; border-radius: 999px;">
+      <span style="display: flex; align-items: center; justify-content: center; width: 27px; height: 27px; border-radius: 999px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z"/>
+        </svg>
+      </span>
+      <span style="display: flex; align-items: center; justify-content: center; width: 27px; height: 27px; border-radius: 999px; background: #e8e6e0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1c19" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5"/>
+        </svg>
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 11px; border: 1px solid #dcdad2; border-radius: 999px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#63685f" stroke-width="1.7" stroke-linecap="round">
+        <path d="M4 11v2M8 8.5v7M12 5.5v13M16 8.5v7M20 11v2"/>
+      </svg>
+      <span style="font-size: 12.5px; color: #63685f;">Voice</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 9px; padding: 5px 11px 5px 6px; border: 1px solid #dcdad2; border-radius: 999px;">
+      <span style="width: 20px; height: 20px; border-radius: 999px; background: linear-gradient(140deg,#2f8f63,#7ecfa4);"></span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #63685f;">0x8f2a…c41d</span>
+    </div>
+  </div>
+  </div>
+
+  <div style="flex-grow: 1; display: grid; grid-template-columns: minmax(0,1fr) 328px; min-height: 0;">
+
+    <!-- conversation -->
+    <div style="display: flex; flex-direction: column; min-height: 0; padding: 34px 40px 0 40px;">
+
+      <h1 style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400;
+        font-size: 42px; line-height: 1.06; letter-spacing: -0.015em; color: #1a1c19;">
+        Good evening, Chidi.
+      </h1>
+      <p style="margin: 10px 0 0 0; font-size: 15px; line-height: 1.55; color: #63685f; max-width: 46ch;">
+        I already know what you avoid. Ask me anything about food.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; margin-top: 34px;">
+
+        <div style="display: flex; justify-content: flex-end;">
+          <div style="max-width: 78%; padding: 13px 17px; border-radius: 16px 16px 5px 16px;
+            background: #e6f2ea; border: 1px solid #bcdccb; font-size: 15px; line-height: 1.5;">
+            What should I eat tonight? Something light.
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px; align-items: flex-start;">
+          <div style="display: flex; align-items: center; gap: 7px; padding-left: 2px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2f8f63" stroke-width="1.8" stroke-linecap="round">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>
+            </svg>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em;
+              text-transform: uppercase; color: #2f8f63;">Recalled 2 facts</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8a8f85;">diabetes · groundnuts</span>
+          </div>
+          <div style="max-width: 78%; padding: 15px 18px; border-radius: 16px 16px 16px 5px;
+            background: #ffffff; border: 1px solid #e2e0d9; font-size: 15px; line-height: 1.62; color: #2b2e29;">
+            Try <span style="color: #1a1c19;">boiled yam with efo riro</span> and a small piece of grilled
+            titus. Light on the palm oil, and skip the swallow tonight — it keeps your sugar steadier
+            before bed.
+            <div style="margin-top: 11px; padding-top: 11px; border-top: 1px solid #e2e0d9;
+              font-size: 12.5px; line-height: 1.5; color: #8a8f85;">
+              No groundnut in anything above. Guidance only — check with a practitioner.
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <div style="max-width: 78%; padding: 13px 17px; border-radius: 16px 16px 5px 16px;
+            background: #e6f2ea; border: 1px solid #bcdccb; font-size: 15px; line-height: 1.5;">
+            Palm oil actually upsets me lately.
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 9px; padding: 9px 13px; align-self: flex-start;
+          border: 1px solid #a9d4bd; border-radius: 10px; background: rgba(47,143,99,0.06);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f8f63" stroke-width="1.7" stroke-linecap="round">
+            <path d="M5 12.5l4.2 4.2L19 7"/>
+          </svg>
+          <span style="font-size: 13px; color: #4a4f47;">Remembered</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #2f8f63;">rejection · palm oil</span>
+          <span style="font-size: 12px; color: #8a8f85;">— undo</span>
+        </div>
+
+      </div>
+
+      <div style="flex-grow: 1;"></div>
+
+      <div style="display: flex; gap: 10px; padding: 0 0 26px 0;">
+        <div style="flex-grow: 1; display: flex; align-items: center; padding: 0 18px; height: 52px;
+          border: 1px solid #dcdad2; border-radius: 13px; background: #ffffff; font-size: 15px; color: #9a9f95;">
+          Tell it about a condition, or just ask what to eat…
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px;
+          border-radius: 13px; background: #2f8f63;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h13M12 5.5l6.5 6.5-6.5 6.5"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- memory rail: the product's whole point, made visible -->
+    <div style="border-left: 1px solid #e2e0d9; padding: 34px 26px; display: flex; flex-direction: column; gap: 22px; background: #f1efea;">
+
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em;
+          text-transform: uppercase; color: #8a8f85;">What it knows</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a8f85;">4</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+
+        <div style="padding: 11px 13px; border: 1px solid #e2e0d9; border-radius: 10px; background: #ffffff;">
+          <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 5px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #2f8f63;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.07em;
+              text-transform: uppercase; color: #2f8f63;">Condition</span>
+          </div>
+          <div style="font-size: 13.5px; line-height: 1.4; color: #2b2e29;">Type 2 diabetes</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a6aba1; margin-top: 5px;">2026‑08‑14</div>
+        </div>
+
+        <div style="padding: 11px 13px; border: 1px solid #e2e0d9; border-radius: 10px; background: #ffffff;">
+          <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 5px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #b8492a;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.07em;
+              text-transform: uppercase; color: #b8492a;">Allergy</span>
+          </div>
+          <div style="font-size: 13.5px; line-height: 1.4; color: #2b2e29;">Groundnuts — hives</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a6aba1; margin-top: 5px;">2026‑08‑14</div>
+        </div>
+
+        <div style="padding: 11px 13px; border: 1px solid #a9d4bd; border-radius: 10px; background: rgba(47,143,99,0.06);">
+          <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 5px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #63685f;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.07em;
+              text-transform: uppercase; color: #63685f;">Rejection</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #2f8f63;">new</span>
+          </div>
+          <div style="font-size: 13.5px; line-height: 1.4; color: #2b2e29;">Palm oil — upsets stomach</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a6aba1; margin-top: 5px;">just now</div>
+        </div>
+
+        <div style="padding: 11px 13px; border: 1px solid #e2e0d9; border-radius: 10px; background: #ffffff; opacity: 0.55;">
+          <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 5px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #9a7118;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.07em;
+              text-transform: uppercase; color: #9a7118;">Superseded</span>
+          </div>
+          <div style="font-size: 13.5px; line-height: 1.4; color: #63685f; text-decoration: line-through;">Dislikes fish</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a6aba1; margin-top: 5px;">2026‑07‑02</div>
+        </div>
+
+      </div>
+
+      <div style="flex-grow: 1;"></div>
+
+      <div style="padding: 13px; border: 1px solid #e2e0d9; border-radius: 10px;">
+        <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#63685f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6l7-3Z"/>
+          </svg>
+          <span style="font-size: 12px; color: #63685f;">You own this memory</span>
+        </div>
+        <p style="margin: 0; font-size: 11.5px; line-height: 1.5; color: #9a9f95;">
+          Encrypted to your own address. This app is a delegate you can revoke.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

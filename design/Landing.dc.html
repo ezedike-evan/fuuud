@@ -1,0 +1,310 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+      background: #0c0d0c; color: #eceee9; -webkit-font-smoothing: antialiased; }
+    a { color: #7ecfa4; text-decoration: none; }
+    a:hover { color: #a5e2c2; }
+    h1, h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; letter-spacing: -0.02em; margin: 0; }
+    .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.11em;
+      text-transform: uppercase; color: #656b62; }
+    .cta { display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      height: 52px; padding: 0 26px; border-radius: 12px; background: #7ecfa4; color: #0c0d0c;
+      font-size: 15px; font-weight: 500;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 14px 34px -16px rgba(126,207,164,0.65); }
+  </style>
+</helmet>
+
+<div style="width: 1200px; background: #0c0d0c;">
+
+  <!-- nav -->
+  <div style="display: flex; align-items: center; gap: 14px; padding: 22px 64px; border-bottom: 1px solid #161816;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7ecfa4" stroke-width="1.4" stroke-linecap="round">
+      <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z"/>
+      <path d="M9 7.5c0-1.6 1.2-2 1.2-3.2M14.4 7.5c0-1.6 1.2-2 1.2-3.2"/>
+    </svg>
+    <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.015em;">Kitchen Memory</span>
+    <div style="flex-grow: 1;"></div>
+    <span style="font-size: 13.5px; color: #9aa096;">How it works</span>
+    <span style="font-size: 13.5px; color: #9aa096; margin-left: 26px;">Your data</span>
+    <span style="margin-left: 26px; padding: 8px 16px; border: 1px solid #2c312c; border-radius: 9px;
+      font-size: 13.5px; color: #eceee9;">Sign in</span>
+  </div>
+
+  <!-- hero -->
+  <div style="padding: 84px 64px 72px 64px; display: grid; grid-template-columns: 1.08fr 1fr; gap: 56px;
+    align-items: center; background: radial-gradient(56rem 34rem at 8% 0%, rgba(126,207,164,0.09), transparent 60%);">
+    <div>
+      <div class="eyebrow">Nutrition agent · Nigeria</div>
+      <h1 style="margin-top: 20px; font-size: 68px; line-height: 1.0; max-width: 13ch;">
+        Never declare your allergy <em style="font-style: italic; color: #7ecfa4;">twice</em>.
+      </h1>
+      <p style="margin: 26px 0 0 0; font-size: 17px; line-height: 1.62; color: #9aa096; max-width: 46ch;">
+        Tell it once that you're diabetic, or that groundnuts bring you out in hives. It remembers —
+        across every session, on every screen — and suggests food people here actually eat.
+      </p>
+      <div style="display: flex; align-items: center; gap: 18px; margin-top: 34px;">
+        <span class="cta">Start with Google</span>
+        <span style="font-size: 13px; color: #656b62;">No wallet. No seed phrase.</span>
+      </div>
+    </div>
+
+    <div style="border: 1px solid #232722; border-radius: 16px; background: #0a0b0a; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+      <div class="eyebrow">What it knows about you</div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="padding: 12px 14px; border: 1px solid #232722; border-radius: 10px; background: #101210;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: #7ecfa4; margin-bottom: 5px;">Condition</div>
+          <div style="font-size: 13.5px;">Type 2 diabetes</div>
+        </div>
+        <div style="padding: 12px 14px; border: 1px solid #232722; border-radius: 10px; background: #101210;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: #d97757; margin-bottom: 5px;">Allergy</div>
+          <div style="font-size: 13.5px;">Groundnuts — hives</div>
+        </div>
+      </div>
+      <div style="padding: 14px 16px; border: 1px solid #2f3a2f; border-radius: 12px;
+        background: rgba(126,207,164,0.05); font-size: 14px; line-height: 1.6; color: #dfe2dc;">
+        “Boiled yam with efo riro and grilled titus. Light on the palm oil, skip the swallow tonight.”
+        <div style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #656b62;">
+          recalled 2 facts · never asked again
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- the problem -->
+  <div style="padding: 68px 64px; border-top: 1px solid #161816;">
+    <div class="eyebrow">The problem</div>
+    <h2 style="margin-top: 18px; font-size: 40px; line-height: 1.14; max-width: 24ch;">
+      Every other food app makes you start from zero.
+    </h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 38px;">
+      <div style="padding: 24px; border: 1px solid #232722; border-radius: 14px; background: #101210;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: #2f3a2f;">01</div>
+        <h3 style="margin: 14px 0 8px 0; font-size: 16px; font-weight: 500;">You type it again</h3>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #9aa096;">
+          Diabetic. Allergic to groundnuts. Can't take too much salt. Every new chat, from the top.
+        </p>
+      </div>
+      <div style="padding: 24px; border: 1px solid #232722; border-radius: 14px; background: #101210;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: #2f3a2f;">02</div>
+        <h3 style="margin: 14px 0 8px 0; font-size: 16px; font-weight: 500;">One day you forget</h3>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #9aa096;">
+          For a craving that's an annoyance. For an allergy it's a hospital visit.
+        </p>
+      </div>
+      <div style="padding: 24px; border: 1px solid #232722; border-radius: 14px; background: #101210;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: #2f3a2f;">03</div>
+        <h3 style="margin: 14px 0 8px 0; font-size: 16px; font-weight: 500;">And it isn't yours</h3>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #9aa096;">
+          Whatever it did learn sits in someone else's database, on their terms.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- how it works -->
+  <div style="padding: 68px 64px; border-top: 1px solid #161816; background: #0a0b0a;">
+    <div class="eyebrow">How it works</div>
+    <h2 style="margin-top: 18px; font-size: 40px; line-height: 1.14; max-width: 22ch;">
+      Three steps, then it stops asking.
+    </h2>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 38px;">
+      <div style="display: grid; grid-template-columns: 56px minmax(0,1fr) 1fr; gap: 28px; align-items: start;
+        padding: 26px 0; border-top: 1px solid #1e211e;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7ecfa4;">01</span>
+        <div>
+          <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 500;">Sign in with Google</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #9aa096;">
+            A Sui address is created for you behind the scenes. No wallet to install, no gas to pay,
+            nothing to write down.
+          </p>
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.7; color: #4f544d;">
+          zkLogin via Enoki<br>address owned by you
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 56px minmax(0,1fr) 1fr; gap: 28px; align-items: start;
+        padding: 26px 0; border-top: 1px solid #1e211e;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7ecfa4;">02</span>
+        <div>
+          <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 500;">Talk to it like a person</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #9aa096;">
+            It writes down conditions, allergies, and foods that disagreed with you. It ignores
+            cravings and small talk — and stops entirely if you say “don't save that”.
+          </p>
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.7; color: #4f544d;">
+          encrypted before it leaves<br>stored on Walrus
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 56px minmax(0,1fr) 1fr; gap: 28px; align-items: start;
+        padding: 26px 0; border-top: 1px solid #1e211e; border-bottom: 1px solid #1e211e;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7ecfa4;">03</span>
+        <div>
+          <h3 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 500;">Everything else follows</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #9aa096;">
+            Meal suggestions, and the practitioners you're shown, both rank off what it remembers.
+            You never fill in a form twice.
+          </p>
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.7; color: #4f544d;">
+          semantic recall<br>newer facts win
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ownership: the differentiator -->
+  <div style="padding: 68px 64px; border-top: 1px solid #161816;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center;">
+      <div>
+        <div class="eyebrow">Your data</div>
+        <h2 style="margin-top: 18px; font-size: 40px; line-height: 1.14; max-width: 18ch;">
+          We're a guest in your record, not its keeper.
+        </h2>
+        <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.66; color: #9aa096; max-width: 46ch;">
+          Your memory belongs to your address, encrypted with keys only you hold. This app holds a
+          delegate key you granted — and one button takes it back. When you revoke it, the agent
+          goes blind. We can't refuse, because the permission was never ours.
+        </p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; gap: 14px; padding: 20px; border: 1px solid #232722; border-radius: 13px; background: #101210;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7ecfa4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+            <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6l7-3Z"/>
+          </svg>
+          <div>
+            <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">Encrypted end to end</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #9aa096;">
+              Nobody running this service can read your conditions.
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 20px; border: 1px solid #232722; border-radius: 13px; background: #101210;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7ecfa4" stroke-width="1.6" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1px;">
+            <path d="M18.5 12a6.5 6.5 0 1 1-2.4-5.03M18.5 4.2V8h-3.8"/>
+          </svg>
+          <div>
+            <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">Revocable in one tap</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #9aa096;">
+              Enforced onchain, not by our good behaviour.
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 20px; border: 1px solid #3a3226; border-radius: 13px; background: rgba(217,164,65,0.045);">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#d9a441" stroke-width="1.6" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1px;">
+            <path d="M12 8.5v4.5M12 16.2v.1"/><path d="M10.6 3.9 2.9 17.4A1.6 1.6 0 0 0 4.3 20h15.4a1.6 1.6 0 0 0 1.4-2.6L13.4 3.9a1.6 1.6 0 0 0-2.8 0Z"/>
+          </svg>
+          <div>
+            <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">What we can't do yet</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #9aa096;">
+              Forgetting hides a fact from the agent, but the encrypted record stays on Walrus until
+              its storage period expires. We'd rather say so.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- closing -->
+  <div style="padding: 84px 64px; border-top: 1px solid #161816; text-align: center;
+    background: radial-gradient(46rem 26rem at 50% 100%, rgba(126,207,164,0.09), transparent 62%);">
+    <h2 style="font-size: 46px; line-height: 1.08; max-width: 20ch; margin: 0 auto;">
+      Tell it once. That's the whole product.
+    </h2>
+    <div style="display: flex; justify-content: center; margin-top: 30px;">
+      <span class="cta">Start with Google</span>
+    </div>
+    <p style="margin: 20px 0 0 0; font-size: 12.5px; color: #5c625a;">
+      Free while in beta. Health guidance only — not a substitute for a practitioner.
+    </p>
+  </div>
+
+  <!-- footer -->
+  <div style="border-top: 1px solid #1e211e; background: #080908;">
+
+    <div style="display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 56px; padding: 56px 64px 44px 64px;">
+
+      <div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7ecfa4" stroke-width="1.35" stroke-linecap="round">
+            <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z"/>
+            <path d="M9 7.5c0-1.6 1.2-2 1.2-3.2M14.4 7.5c0-1.6 1.2-2 1.2-3.2"/>
+          </svg>
+          <span style="font-family: 'Instrument Serif', Georgia, serif; font-size: 30px; letter-spacing: -0.02em; color: #eceee9;">
+            Kitchen Memory
+          </span>
+        </div>
+        <p style="margin: 18px 0 0 0; font-size: 14px; line-height: 1.62; color: #7e847a; max-width: 34ch;">
+          A nutrition agent that remembers your health profile — and a record that stays yours,
+          not ours.
+        </p>
+        <div style="display: inline-flex; align-items: center; gap: 9px; margin-top: 22px;
+          padding: 8px 14px 8px 11px; border: 1px solid #232722; border-radius: 999px;">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: #7ecfa4;"></span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7e847a;">
+            Beta · Awka, Anambra
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 13px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.11em;
+          text-transform: uppercase; color: #4f544d; margin-bottom: 3px;">Product</span>
+        <span style="font-size: 13.5px; color: #9aa096;">How it works</span>
+        <span style="font-size: 13.5px; color: #9aa096;">Practitioners</span>
+        <span style="font-size: 13.5px; color: #9aa096;">Sign in</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 13px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.11em;
+          text-transform: uppercase; color: #4f544d; margin-bottom: 3px;">Your data</span>
+        <span style="font-size: 13.5px; color: #9aa096;">What we store</span>
+        <span style="font-size: 13.5px; color: #9aa096;">Revoking access</span>
+        <span style="font-size: 13.5px; color: #9aa096;">Privacy</span>
+        <span style="font-size: 13.5px; color: #9aa096;">[CONTACT EMAIL]</span>
+      </div>
+    </div>
+
+    <!-- the standing promise, carried to the last line of the page -->
+    <div style="display: flex; align-items: center; gap: 22px; padding: 20px 64px 22px 64px;
+      border-top: 1px solid #161816;">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4f544d;">
+        © 2026 Kitchen Memory
+      </span>
+      <span style="width: 1px; height: 12px; background: #232722;"></span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4f544d;">
+        Built on Walrus Memory
+      </span>
+      <div style="flex-grow: 1;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3f7a5c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6l7-3Z"/>
+        </svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4f544d;">
+          Encrypted to your address · never to ours
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
