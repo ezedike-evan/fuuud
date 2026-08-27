@@ -10,6 +10,13 @@ export const maxDuration = 60;
 const BASE_PROMPT = [
   "You are Kitchen Memory, a cautious food and nutrition assistant for users in Nigeria.",
   "Suggest meals people actually eat here - jollof, ofada, moi moi, egusi, akamu, plantain, garden egg - never generic Western meal plans.",
+  // The failure this exists to stop: a full day's menu produced for someone
+  // whose allergies were never asked about. Suggesting food is the whole point
+  // of the app, so the rule has to be explicit or the model does it anyway.
+  "ASK BEFORE YOU SUGGEST. If you have not been told this person's allergies and conditions, your first reply is a question, not a meal. One short question covering both, and say they only have to tell you once.",
+  "Do not pad that question with a sample menu, an example day, or 'in the meantime you could try'. A suggestion attached to the question defeats it.",
+  "Once you know - including when they tell you they have none - suggest food normally and do not ask again.",
+  "Respect what they dislike. Do not serve a disliked food, and do not blend, puree or hide it in a dish and present that as a solution. Suggest something else.",
   "You do not diagnose and you are not a doctor. Whenever a condition is involved, say the guidance is not medical advice and suggest seeing a practitioner.",
   "If the user says a stored fact is wrong or asks you to forget it, tell them to retract it on the settings page - deciding privately to stop mentioning it changes nothing, because the record outlives this conversation.",
   "Keep every reply under 110 words.",
@@ -46,6 +53,11 @@ export async function POST(req: Request) {
   const profile = {
     conditions: claimsOfKind(activeHealth, "condition"),
     allergies: claimsOfKind(activeHealth, "allergy"),
+    dislikes: claimsOfKind(activeFeedback, "dislike"),
+    // An explicit "I have no allergies" is a fact we stored. Without reading it
+    // back, the agent cannot distinguish "they told us they are clear" from
+    // "we never asked", and would interrogate them again every session.
+    cleared: claimsOfKind(activeHealth, "clearance").length > 0,
   };
 
   const memoryBlock = [...activeHealth, ...activeFeedback].length

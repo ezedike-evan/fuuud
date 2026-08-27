@@ -14,7 +14,7 @@ const QA = [
   },
   {
     q: "What exactly gets written down?",
-    a: "Four things you assert about yourself: a medical condition, an allergy or intolerance, a suggestion you refused with a reason, and a symptom after eating. Cravings, small talk, hypotheticals and its own suggestions are never stored. Most turns store nothing at all.",
+    a: "Six things you assert about yourself: a medical condition, an allergy or intolerance, an explicit “I have no allergies”, a suggestion you refused with a reason, a symptom after eating, and a standing dislike such as “I don’t like a lot of vegetables”. Cravings, small talk, hypotheticals and its own suggestions are never stored. Most turns store nothing at all.",
   },
   {
     q: "What if I say something I don't want kept?",

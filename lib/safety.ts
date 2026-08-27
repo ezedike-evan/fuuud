@@ -94,7 +94,26 @@ const CONDITION_SYNONYMS: Record<string, string> = {
 // Phrases that contain an allergen token but are NOT that allergen.
 const FALSE_POSITIVE_PHRASES = ["garden egg", "garden eggs", "eggplant", "sweet potato"];
 
-export type HealthProfile = { conditions?: string[]; allergies?: string[] };
+export type HealthProfile = {
+  conditions?: string[];
+  allergies?: string[];
+  /** Standing preferences. Shape suggestions; never a safety rule. */
+  dislikes?: string[];
+  /** They explicitly told us they have no allergies / no conditions. */
+  cleared?: boolean;
+};
+
+/**
+ * Do we actually know this person's allergy status?
+ *
+ * "No allergies recalled" is NOT the same as "no allergies". Until they have
+ * either named one or explicitly said they have none, the honest answer is
+ * that we do not know — and an agent that suggests a meal in that state is
+ * guessing with someone's airway.
+ */
+export function allergyStatusKnown(profile: HealthProfile = {}) {
+  return Boolean(profile.cleared) || normalizeList(profile.allergies).length > 0;
+}
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -179,6 +198,7 @@ export function buildBlocklist(profile: HealthProfile = {}) {
 export function buildSafetyConstraintsText(profile: HealthProfile) {
   const { allergenKeys, conditions } = buildBlocklist(profile);
   const lines = ["HARD SAFETY CONSTRAINTS - every meal must comply:"];
+
   if (allergenKeys.length) {
     lines.push(`- Never include these allergens or any dish containing them: ${allergenKeys.map((k) => ALLERGEN_LABELS[k] ?? k).join(", ")}.`);
   }
@@ -186,7 +206,32 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
     const avoid = CONDITION_AVOID_LABELS[condition];
     if (avoid) lines.push(`- For ${CONDITION_LABELS[condition] ?? condition}, avoid: ${avoid.join(", ")}.`);
   }
-  if (lines.length === 1) lines.push("- Keep meals balanced, mild, and vegetable-forward.");
+
+  /*
+   * The gate. Previously an unknown profile fell through to "keep meals
+   * balanced, mild and vegetable-forward" — which reads as permission to plan
+   * a full day of meals for someone whose allergies nobody has asked about,
+   * and bakes in a vegetable bias nobody requested. An empty profile is a
+   * question to ask, not a default to apply.
+   */
+  if (!allergyStatusKnown(profile)) {
+    lines.push(
+      "- You DO NOT KNOW this person's allergies or conditions yet. Do not name a single specific dish, meal or menu until you do.",
+      "- Ask them, in one short question, what allergies and medical conditions you should know about. Tell them they only have to say it once.",
+      "- If they say they have none, accept that and go on to suggest food.",
+    );
+  } else if (profile.cleared && !allergenKeys.length) {
+    lines.push("- They have told you they have no known allergies. Do not keep asking.");
+  }
+
+  const dislikes = normalizeList(profile.dislikes);
+  if (dislikes.length) {
+    lines.push(
+      `- They dislike: ${dislikes.join("; ")}. Work around it rather than serving it and hoping. Do not hide a disliked food inside a dish and present it as a solution.`,
+      "- A dislike is a preference, not a safety rule: it never overrides an allergy or a condition, and it is never a reason to call a meal unsafe.",
+    );
+  }
+
   return lines.join("\n");
 }
 

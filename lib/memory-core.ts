@@ -63,8 +63,13 @@ const RESTORE_LIMIT = 25;
 const KIND_NAMESPACE: Record<FactKind, (a: string) => string> = {
   condition: healthNs,
   allergy: healthNs,
+  // A clearance is a clinical statement about the person's body ("no known
+  // allergies"), so it belongs with the conditions it negates — not in the
+  // preferences namespace where a recall for allergies would never see it.
+  clearance: healthNs,
   rejection: feedbackNs,
   symptom: feedbackNs,
+  dislike: feedbackNs,
 };
 
 export type { FactKind, RecalledFact };

@@ -23,7 +23,9 @@ function toRows(facts: { text: string; distance: number }[]): Row[] {
 const KIND_COLOR: Record<string, string> = {
   condition: "var(--c-accent)",
   allergy: "var(--c-danger)",
+  clearance: "var(--c-accent)",
   symptom: "var(--c-warn)",
+  dislike: "var(--c-ink-muted)",
 };
 
 export default async function SettingsPage() {

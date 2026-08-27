@@ -26,7 +26,7 @@ const FEATURES = [
     icon: Filter,
     title: "A write gate, not a diary",
     body:
-      "Four things get written: a condition, an allergy, a refusal with a reason, a symptom after eating. Cravings, small talk and its own suggestions never do. Most turns store nothing.",
+      "Six things get written: a condition, an allergy, an explicit “no allergies”, a refusal with a reason, a symptom after eating, a standing dislike. Cravings, small talk and its own suggestions never do. Most turns store nothing.",
   },
   {
     icon: ShieldAlert,

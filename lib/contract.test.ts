@@ -6,7 +6,7 @@ import {
 } from "./facts.ts";
 import {
   screenReply, buildSafetyConstraintsText, findFlags,
-  resolveAllergens, normalizeConditions,
+  resolveAllergens, normalizeConditions, allergyStatusKnown,
 } from "./safety.ts";
 import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
@@ -191,4 +191,61 @@ test("a meal is screened against the stored form of the allergy", () => {
   assert.equal(screenReply("Boiled yam with efo riro", stored).safe, true);
   // The false-positive guards must survive the looser matching.
   assert.equal(screenReply("Garden egg sauce with sweet potato", stored).safe, true);
+});
+
+
+/*
+ * The ask-first gate.
+ *
+ * Reported from a live run: with nothing stored, the agent produced a full
+ * day's menu for someone whose allergies it had never asked about — because an
+ * empty profile fell through to "keep meals balanced, mild and
+ * vegetable-forward", which reads as permission to plan.
+ */
+test("an empty profile is a question to ask, not a default to apply", () => {
+  const text = buildSafetyConstraintsText({});
+  assert.equal(allergyStatusKnown({}), false);
+  assert.match(text, /DO NOT KNOW this person's allergies/);
+  assert.match(text, /Do not name a single specific dish, meal or menu/);
+  // The vegetable bias nobody asked for must be gone.
+  assert.doesNotMatch(text, /vegetable-forward/);
+});
+
+test("no recalled allergies is not the same as no allergies", () => {
+  // Never asked.
+  assert.equal(allergyStatusKnown({ allergies: [] }), false);
+  // They said they have none — a fact we stored.
+  assert.equal(allergyStatusKnown({ cleared: true }), true);
+  // They named one.
+  assert.equal(allergyStatusKnown({ allergies: ["groundnuts - hives"] }), true);
+});
+
+test("a stored clearance stops the agent asking again", () => {
+  const text = buildSafetyConstraintsText({ cleared: true });
+  assert.match(text, /no known allergies\. Do not keep asking/);
+  assert.doesNotMatch(text, /DO NOT KNOW/);
+});
+
+test("a dislike shapes suggestions and is never hidden in a dish", () => {
+  const text = buildSafetyConstraintsText({ cleared: true, dislikes: ["most vegetables"] });
+  assert.match(text, /They dislike: most vegetables/);
+  assert.match(text, /Do not hide a disliked food inside a dish/);
+});
+
+test("a dislike is never a safety rule", () => {
+  // Someone who dislikes vegetables is not endangered by one. The screen must
+  // not start refusing meals over a preference — that would make the safety
+  // signal meaningless exactly where it matters.
+  const profile = { conditions: [], allergies: [], dislikes: ["most vegetables"] };
+  assert.equal(screenReply("Jollof rice with carrots and peas", profile).safe, true);
+  assert.match(
+    buildSafetyConstraintsText({ cleared: true, dislikes: ["most vegetables"] }),
+    /never overrides an allergy or a condition/,
+  );
+});
+
+test("a dislike never outranks a real allergy", () => {
+  // Disliking vegetables must not soften the groundnut rule.
+  const profile = { allergies: ["groundnuts - hives"], dislikes: ["most vegetables"] };
+  assert.equal(screenReply("Akamu with groundnut paste", profile).safe, false);
 });

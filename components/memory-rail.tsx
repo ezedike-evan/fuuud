@@ -1,6 +1,6 @@
 export type RailFact = {
   date: string;
-  kind: "condition" | "allergy" | "rejection" | "symptom" | "fact";
+  kind: "condition" | "allergy" | "clearance" | "rejection" | "symptom" | "dislike" | "fact";
   claim: string;
   superseded?: boolean;
 };
@@ -12,8 +12,11 @@ export type RailFact = {
 const DOT: Record<string, string> = {
   condition: "var(--c-accent)",
   allergy: "var(--c-danger)",
+  // A clearance is good news, not a hazard — it must not read as an allergy.
+  clearance: "var(--c-accent)",
   rejection: "var(--c-ink-muted)",
   symptom: "var(--c-warn)",
+  dislike: "var(--c-ink-muted)",
   fact: "var(--c-ink-muted)",
 };
 
