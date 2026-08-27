@@ -14,7 +14,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
  * provided in the request" when it is missing or from another network — so
  * these three must never drift apart.
  */
-const NETWORK = "testnet" as const;
+const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK ?? "testnet") as "testnet" | "mainnet";
 const CHAIN = `sui:${NETWORK}` as const;
 
 /**
