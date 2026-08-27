@@ -60,37 +60,118 @@ ingredient tokens against your recorded allergens (`kuli kuli` → peanut,
 speaks, so an unsafe suggestion is caught whether it came from a static plan or
 a hallucination.
 
-## 3. What it remembers
+## 3. What the prompt tells the agent to do
 
-Two namespaces, both keyed to the owner's Sui address:
+There are **two prompts, doing two different jobs**, and keeping them apart is
+the design.
 
-| Namespace | Holds | Written when |
+The **conversation prompt** decides what to *say*. The **write gate** decides
+what to *keep*. A model fluent enough to give good food advice is not therefore
+trustworthy about what belongs in a medical record — it will happily write down
+"I fancy jollof tonight" to look useful. So the gate is a separate call with its
+own instructions and a strict schema, and it is the graded part of this project.
+
+### The conversation prompt: ask before you serve
+
+The agent is told, in this order:
+
+1. **Check what you already know before you ask.** Its own stored record is in
+   the prompt. If that record names an allergy, it has already been told.
+   *Asking someone to repeat an allergy they gave you is the one thing this app
+   exists to prevent* — so the instruction says exactly that.
+2. **Ask only when the record is empty.** With nothing stored, the first reply
+   is a question, not a meal. One short question covering allergies and
+   conditions, and it says you only have to answer once.
+3. **Don't pad the question with a menu.** No "in the meantime you could try…".
+   A suggestion attached to the question defeats the question.
+4. **Say which stored fact you used** — "no groundnut, as you told me" — so the
+   memory is visible and correctable rather than something you take on trust.
+5. **Respect a dislike without hiding it.** Do not blend, puree or bury a
+   disliked food in a dish and present that as a solution.
+6. **You are not a doctor.** Any condition gets a not-medical-advice line and a
+   nudge to see a practitioner.
+7. **A fact you dislike is not yours to forget.** If the user says a stored fact
+   is wrong, the agent points them at the retraction UI — quietly deciding to
+   stop mentioning it changes nothing, because the record outlives the chat.
+
+Underneath sits a **deterministic constraints block** built in code, not by the
+model (`lib/safety.ts`): stated allergies and conditions verbatim, plus
+mechanical avoid-lists for the ones we have token tables for, plus an explicit
+warning naming any allergen no automatic screen can catch. With an empty
+profile it emits a refusal to name any dish at all.
+
+### The write gate: six kinds, and a bias toward keeping
+
+A fact is written only when the **user asserts it about their own body**:
+
+| Kind | Namespace | Example |
 |---|---|---|
-| `kitchen:health:<suiAddress>` | conditions, allergies | the user asserts one |
-| `kitchen:feedback:<suiAddress>` | rejected meals, symptoms | the user refuses a suggestion **with a reason**, or reports a symptom after eating |
+| `condition` | `kitchen:health:<addr>` | "I'm diabetic" |
+| `allergy` | `kitchen:health:<addr>` | "groundnuts bring me out in hives" |
+| `clearance` | `kitchen:health:<addr>` | "no allergies that I know of" |
+| `rejection` | `kitchen:feedback:<addr>` | "no, palm oil upsets me" |
+| `symptom` | `kitchen:feedback:<addr>` | "that gave me heartburn" |
+| `dislike` | `kitchen:feedback:<addr>` | "I'm not a vegetables person" |
 
-**Never written:** cravings, small talk, the assistant's own suggestions,
-speculation and hypotheticals, or anything in a turn containing "don't save
-that" — that instruction covers the whole turn, including a real condition
-mentioned inside it. Most turns store nothing, and the prompt says so explicitly
-so the agent does not invent facts to look useful.
+Three of those exist because of failures we watched happen in a live run:
 
-**The problem the memory solves** is re-declaration. Steps 3→4 of the acceptance
-test are the entire point: close the browser, clear all site data, sign in
-again, say only "what should I eat today?" — and the constraints are already
-applied. Steps 5→6 are what make it Walrus: retract a fact and nothing can read
-it again, then revoke the delegate key on-chain without asking the app's
-permission.
+- **`clearance`** — storing the *absence* matters as much as the presence.
+  Without it, "nothing recalled" is ambiguous between *they told us they are
+  clear* and *we never asked*, and the agent interrogates the same person every
+  session.
+- **`dislike`** — a standing preference is durable; a craving is not. "I don't
+  eat pork" is kept, "not in the mood for rice" is not.
+- **A suspected allergy is still an allergy.** "I *think* I might be allergic to
+  groundnut" is written as `suspected groundnut allergy`, not discarded as
+  speculation. The cost of keeping a suspicion that turns out to be nothing is
+  that they correct it later. The cost of dropping it is that the agent keeps
+  serving the thing they just flagged.
 
-That step 3→4 claim has one failure mode, and we handle it rather than hope.
-The relayer's vector index and the blobs on Walrus are separate stores; only the
+The line is whether they are talking about their own body: *"I might be
+allergic"* is written, *"what if I were allergic"* is not.
+
+**Also enforced:** carry the stated severity and never a milder one; resolve
+relative time to an absolute date or omit it rather than guess; one turn can
+carry two facts and both are returned; the agent's previous question is passed
+as context so a bare "none that I know of" can be resolved — but nothing the
+*assistant* said is ever storable.
+
+**Never written:** cravings, small talk, hypotheticals, the assistant's own
+suggestions, or anything in a turn containing "don't save that" — which covers
+the whole turn, including a real condition mentioned inside it. Most turns store
+nothing, and the prompt says an empty result is the correct and common answer so
+the model does not invent facts to seem useful.
+
+### How it is retrieved — the part that is easy to get wrong
+
+Recall is a similarity search with a relevance floor, so **what you ask for
+decides what the model sees**. We originally queried the health namespace with
+the user's own message. Ask "something light for dinner" and a stored
+`allergy | groundnuts - hives` sits nowhere near it in embedding space, falls
+below the floor, and is dropped as irrelevant — the agent then answers, in good
+faith, as though the allergy did not exist.
+
+An allergy is not relevant only when it happens to be mentioned. Conditions and
+allergies are now retrieved every turn with a **fixed** query, never the user's
+words. Preferences are read twice and merged: a stable query so a standing
+dislike always applies, plus the user's own words so something rejected last
+time resurfaces when it comes up again.
+
+### The problem the memory solves
+
+Re-declaration. Steps 3→4 of the acceptance test are the entire point: close the
+browser, clear all site data, sign in again, say only "what should I eat today?"
+— and the constraints are already applied. Steps 5→6 are what make it Walrus:
+retract a fact and nothing can read it again.
+
+That 3→4 claim has one failure mode, and we handle it rather than hope. The
+relayer's vector index and the blobs on Walrus are separate stores; only the
 second is durable. A namespace with missing index rows recalls **nothing** while
-the record sits intact — and here, an empty recall is indistinguishable from a
-healthy person with no conditions. So an empty recall is never taken at face
-value: it triggers one `restore()` pass for that namespace, which pulls the
-blobs back from Walrus, decrypts, re-embeds and reinserts the rows, then the
-recall is retried. Once per namespace per process, and never in front of a
-recall that already returned something.
+the record sits intact — and an empty recall is indistinguishable from a healthy
+person with no conditions. So an empty recall is never taken at face value: it
+triggers one `restore()` pass for that namespace, pulling blobs back from
+Walrus, re-embedding and reinserting the rows, then retrying. Once per namespace
+per process, and never in front of a recall that already returned something.
 
 ### Four SDK behaviours that shaped the whole design
 
