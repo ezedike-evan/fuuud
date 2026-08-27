@@ -56,7 +56,7 @@ export async function POST(req: Request) {
      * return a short reason so the browser is not left guessing.
      */
     const detail = error instanceof Error ? error.message : String(error);
-    console.error("[kitchen-memory] zkLogin verification failed:", detail);
+    console.error("[fuuud] zkLogin verification failed:", detail);
     return new Response(`Signature rejected: ${detail}`, { status: 401 });
   }
 

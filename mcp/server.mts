@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Kitchen Memory — MCP server.
+ * Fuuud — MCP server.
  *
  * Exposes one person's health memory to any MCP-speaking agent (Claude Code,
  * Cursor, a meal planner, another assistant) through the SAME contract the web
@@ -53,7 +53,7 @@ async function profile() {
 }
 
 const server = new McpServer(
-  { name: "kitchen-memory", version: "0.1.0" },
+  { name: "fuuud", version: "0.1.0" },
   { capabilities: { tools: {}, resources: {} } },
 );
 
@@ -243,7 +243,7 @@ server.registerTool(
 
 server.registerResource(
   "health-profile",
-  "kitchen-memory://profile",
+  "fuuud://profile",
   {
     title: "Health profile",
     description: "The person's current conditions and allergies, distilled from their memory.",
@@ -263,4 +263,4 @@ server.registerResource(
 
 // stdout carries the MCP protocol — anything we say goes to stderr.
 await server.connect(new StdioServerTransport());
-console.error(`kitchen-memory MCP ready for ${owner}`);
+console.error(`fuuud MCP ready for ${owner}`);

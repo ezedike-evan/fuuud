@@ -1,5 +1,5 @@
 {
-  "name": "kitchen-memory",
+  "name": "fuuud",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,8 @@
     "test": "node --test --experimental-strip-types lib/contract.test.ts",
     "smoke": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/smoke.ts",
     "mcp": "node --experimental-strip-types mcp/server.mts",
-    "mcp:probe": "node --env-file-if-exists=.env.local scripts/mcp-probe.mjs"
+    "mcp:probe": "node --env-file-if-exists=.env.local scripts/mcp-probe.mjs",
+    "blobs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/blob-ids.mts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",

@@ -9,7 +9,7 @@ export default function Footer() {
         <div>
           <div className="flex items-center gap-3">
             <Wordmark size={30} label={false} />
-            <p className="font-display font-medium text-[30px] tracking-[-0.03em]">Kitchen Memory</p>
+            <p className="font-display font-medium text-[30px] tracking-[-0.03em]">Fuuud</p>
           </div>
 
           <p className="mt-[18px] max-w-[34ch] text-sm leading-[1.62] text-ink-muted">
@@ -41,7 +41,7 @@ export default function Footer() {
       </div>
 
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-[22px] border-t border-line-soft px-6 pb-[22px] pt-5 md:px-12">
-        <span className="font-mono text-[11px] text-ink-faint">© 2026 Kitchen Memory</span>
+        <span className="font-mono text-[11px] text-ink-faint">© 2026 Fuuud</span>
         <span aria-hidden className="h-3 w-px bg-line" />
         <span className="font-mono text-[11px] text-ink-faint">Built on Walrus Memory</span>
         <div className="flex-1" />

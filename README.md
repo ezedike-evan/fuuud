@@ -1,4 +1,4 @@
-# Kitchen Memory
+# Fuuud
 
 A nutrition agent that remembers your health profile, so you never re-declare an
 allergy. Built for the Walrus Memory hackathon (SuiHub Lagos, 27 Aug 2026).
@@ -239,7 +239,7 @@ lives on Walrus under your own address rather than inside either application.
 meal is safe, it matches ingredient tokens against the person's own recorded
 allergens. Any agent can call it before recommending food.
 
-There is also a `kitchen-memory://profile` resource returning current conditions
+There is also a `fuuud://profile` resource returning current conditions
 and allergies as JSON.
 
 ### Add it to Claude Code
@@ -247,10 +247,10 @@ and allergies as JSON.
 ```json
 {
   "mcpServers": {
-    "kitchen-memory": {
+    "fuuud": {
       "command": "node",
       "args": ["--experimental-strip-types", "mcp/server.mts"],
-      "cwd": "/absolute/path/to/kitchen-memory",
+      "cwd": "/absolute/path/to/fuuud",
       "env": {
         "KM_OWNER_ADDRESS": "0x...",
         "MEMWAL_PRIVATE_KEY": "...",

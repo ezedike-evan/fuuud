@@ -58,5 +58,5 @@ function timingSafeEqual(a: string, b: string) {
 
 /** The exact text the wallet is asked to sign. Shown to the user by the wallet. */
 export function challengeText(nonce: string) {
-  return `Sign in to Kitchen Memory.\n\nThis proves you own this address so your health memory can be unlocked.\n\nNonce: ${nonce}`;
+  return `Sign in to Fuuud.\n\nThis proves you own this address so your health memory can be unlocked.\n\nNonce: ${nonce}`;
 }

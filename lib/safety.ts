@@ -199,12 +199,51 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
   const { allergenKeys, conditions } = buildBlocklist(profile);
   const lines = ["HARD SAFETY CONSTRAINTS - every meal must comply:"];
 
+  /*
+   * EVERYTHING THEY TOLD US GOES IN, VERBATIM, FIRST.
+   *
+   * The blocklists below are keyed off hardcoded synonym tables, so anything
+   * outside them used to be dropped in silence: "asthma" and a mango allergy
+   * produced an EMPTY constraints block, and the agent went on to suggest
+   * meals as though neither had been mentioned. The tables are a deterministic
+   * safety net for the allergens common in Nigerian cooking — they are not the
+   * set of things a person is allowed to have.
+   *
+   * So state the raw claims regardless, then add the mechanical detail for the
+   * ones the tables do cover.
+   */
+  const statedAllergies = normalizeList(profile.allergies);
+  const statedConditions = normalizeList(profile.conditions);
+
+  if (statedAllergies.length) {
+    lines.push(
+      `- They have told you they are allergic to: ${statedAllergies.join("; ")}. Never serve any of these, or any dish containing them, in any amount.`,
+    );
+  }
+  if (statedConditions.length) {
+    lines.push(
+      `- They have told you they have: ${statedConditions.join("; ")}. Every meal must be appropriate for all of them, and say the guidance is not medical advice.`,
+    );
+  }
+
   if (allergenKeys.length) {
     lines.push(`- Never include these allergens or any dish containing them: ${allergenKeys.map((k) => ALLERGEN_LABELS[k] ?? k).join(", ")}.`);
   }
   for (const condition of conditions) {
     const avoid = CONDITION_AVOID_LABELS[condition];
     if (avoid) lines.push(`- For ${CONDITION_LABELS[condition] ?? condition}, avoid: ${avoid.join(", ")}.`);
+  }
+
+  /*
+   * Name the gap out loud. An allergen with no token list is not screened by
+   * screenReply() after the fact, so the model is the only thing standing
+   * between the person and that ingredient. It should know that.
+   */
+  const unscreened = statedAllergies.filter((a) => resolveAllergens([a]).length === 0);
+  if (unscreened.length) {
+    lines.push(
+      `- No automatic ingredient check exists for: ${unscreened.join("; ")}. Nothing downstream will catch a mistake here, so check every dish yourself before you name it.`,
+    );
   }
 
   /*

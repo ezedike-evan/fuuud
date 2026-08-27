@@ -54,7 +54,7 @@ export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>): 
       if (!isThrottle(error) || attempt >= AUTH_RETRY_DELAYS_MS.length) throw error;
       const wait = AUTH_RETRY_DELAYS_MS[attempt];
       console.warn(
-        `[kitchen-memory] ${label}: relayer returned 401 AUTH_REJECTED — ` +
+        `[fuuud] ${label}: relayer returned 401 AUTH_REJECTED — ` +
           `retrying in ${wait / 1000}s (${attempt + 1}/${AUTH_RETRY_DELAYS_MS.length}). ` +
           `If every attempt fails, check the delegate key is registered on this account.`,
       );
@@ -92,7 +92,7 @@ function mock() {
   if (!warned) {
     warned = true;
     console.warn(
-      "[kitchen-memory] MEMWAL_PRIVATE_KEY / MEMWAL_ACCOUNT_ID not set — " +
+      "[fuuud] MEMWAL_PRIVATE_KEY / MEMWAL_ACCOUNT_ID not set — " +
         "running on the in-memory mock. Facts do not persist and recall is " +
         "token-overlap, not semantic. See .env.example.",
     );

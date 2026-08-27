@@ -19,7 +19,7 @@ const GOOGLE_FONTS =
 const FONTSHARE = "https://api.fontshare.com/v2/css?f[]=expose@400,500,700&display=swap";
 
 export const metadata: Metadata = {
-  title: "Kitchen Memory",
+  title: "Fuuud",
   description:
     "A nutrition agent that remembers your health profile — and a record that stays yours.",
 };

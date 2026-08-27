@@ -141,7 +141,7 @@ export async function extractFacts(
      * which is the entire product.
      */
     console.warn(
-      `[kitchen-memory] extraction model ${described?.extract ?? "(unknown)"} failed ` +
+      `[fuuud] extraction model ${described?.extract ?? "(unknown)"} failed ` +
         `(${error instanceof Error ? error.message : String(error)}) — ` +
         `retrying on the chat model ${described?.chat ?? ""}.`,
     );

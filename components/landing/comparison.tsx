@@ -74,7 +74,7 @@ export default function Comparison() {
                   <span className="eyebrow">&nbsp;</span>
                 </th>
                 <th className="px-5 py-3.5">
-                  <span className="eyebrow text-ink">Kitchen Memory</span>
+                  <span className="eyebrow text-ink">Fuuud</span>
                 </th>
                 <th className="px-5 py-3.5">
                   <span className="eyebrow">A normal nutrition chatbot</span>

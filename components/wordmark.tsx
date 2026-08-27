@@ -6,7 +6,7 @@ export default function Wordmark({ size = 26, label = true }: { size?: number; l
         <path d="M9 7.5c0-1.6 1.2-2 1.2-3.2M14.4 7.5c0-1.6 1.2-2 1.2-3.2" />
       </svg>
       {label && (
-        <span className="text-[15px] font-semibold tracking-[-0.015em]">Kitchen Memory</span>
+        <span className="text-[15px] font-semibold tracking-[-0.015em]">Fuuud</span>
       )}
     </span>
   );

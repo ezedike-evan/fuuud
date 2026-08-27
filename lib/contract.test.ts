@@ -390,3 +390,37 @@ test("an allergy recalled on an unrelated question still blocks the meal", () =>
 function claimsOfKindText(lines: string[]) {
   return lines.map((l) => l.split("|").slice(2).join("|").trim());
 }
+
+
+/*
+ * The synonym tables are a safety NET, not the set of things a person is
+ * allowed to have. Anything outside them used to vanish before the model saw
+ * it: "asthma" plus a mango allergy produced an empty constraints block and
+ * the agent suggested meals as though neither had been mentioned.
+ */
+test("a condition outside the known tables still reaches the model", () => {
+  const text = buildSafetyConstraintsText({ conditions: ["sickle cell"], allergies: [] });
+  assert.match(text, /sickle cell/);
+});
+
+test("an allergy outside the known tables still reaches the model", () => {
+  const text = buildSafetyConstraintsText({ conditions: [], allergies: ["mango - itchy throat"] });
+  assert.match(text, /allergic to: mango - itchy throat/);
+  // And the model is told nothing downstream will catch it.
+  assert.match(text, /No automatic ingredient check exists for: mango/);
+});
+
+test("known conditions keep their mechanical avoid-list too", () => {
+  const text = buildSafetyConstraintsText({ conditions: ["type 2 diabetes"], allergies: ["groundnuts - hives"] });
+  assert.match(text, /they have: type 2 diabetes/);      // verbatim
+  assert.match(text, /For diabetes, avoid:/);            // and the derived rules
+  assert.match(text, /Peanuts \/ groundnuts/);
+  // A screened allergen must NOT be flagged as unscreened.
+  assert.doesNotMatch(text, /No automatic ingredient check exists for: groundnuts/);
+});
+
+test("an unknown condition alone is never an empty constraint block", () => {
+  const text = buildSafetyConstraintsText({ conditions: ["asthma"], allergies: [] });
+  const bullets = text.split("\n").filter((l) => l.startsWith("- "));
+  assert.ok(bullets.length > 0, "constraints must never be a bare header");
+});

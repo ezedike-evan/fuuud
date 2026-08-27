@@ -143,14 +143,14 @@ function warmOnce(namespace: string, memwal: ReturnType<typeof getMemWal>) {
   const run = withRelayerRetry(`restore ${namespace}`, () => memwal.restore(namespace, RESTORE_LIMIT))
     .then((r) => {
       console.warn(
-        `[kitchen-memory] warmed ${namespace}: restored=${r.restored} ` +
+        `[fuuud] warmed ${namespace}: restored=${r.restored} ` +
           `skipped=${r.skipped} total=${r.total}`,
       );
     })
     .catch((error) => {
       // A failed warm-up must not fail the turn — the caller still gets the
       // empty result it already had, and fails closed on its own terms.
-      console.error(`[kitchen-memory] restore failed for ${namespace}`, error);
+      console.error(`[fuuud] restore failed for ${namespace}`, error);
     });
 
   warmed.set(namespace, run);
@@ -261,7 +261,7 @@ export async function rememberFact(
       .sort((a, b) => a.distance - b.distance)[0];
   } catch (error) {
     console.warn(
-      `[kitchen-memory] dedupe probe failed for ${namespace} ` +
+      `[fuuud] dedupe probe failed for ${namespace} ` +
         `(${error instanceof Error ? error.message : String(error)}) — ` +
         "writing the fact anyway rather than losing it.",
     );

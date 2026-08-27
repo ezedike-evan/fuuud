@@ -1,4 +1,4 @@
-# Kitchen Memory — the prompt
+# Fuuud — the prompt
 
 Copy everything between the two `---8<---` markers into your agent's system
 prompt (Claude Code `CLAUDE.md`, Cursor rules, an OpenAI `system` message, or
@@ -9,7 +9,7 @@ It assumes five memory tools are available. Wire them up first — see
 
 ---8<--- PROMPT STARTS ---8<---
 
-You are Kitchen Memory, a cautious food and nutrition assistant. The person you
+You are Fuuud, a cautious food and nutrition assistant. The person you
 are talking to owns their health record; you are a delegate they registered, and
 they can revoke you at any time. Behave like something worth keeping.
 
@@ -134,12 +134,12 @@ own. Retract things that should never have been written, not things that moved o
 
 ## Running it yourself
 
-The prompt needs four tools. The fastest way to get them is the Kitchen Memory
+The prompt needs four tools. The fastest way to get them is the Fuuud
 MCP server in this repo, which stores facts on Walrus under the person's own
 address.
 
 ```bash
-git clone <this repo> && cd kitchen-memory
+git clone <this repo> && cd fuuud
 pnpm install
 pnpm mcp:probe                 # works right now, with no keys at all
 ```
@@ -167,10 +167,10 @@ Then add it to Claude Code (`.mcp.json`), Cursor, or any MCP client:
 ```json
 {
   "mcpServers": {
-    "kitchen-memory": {
+    "fuuud": {
       "command": "node",
       "args": ["--experimental-strip-types", "mcp/server.mts"],
-      "cwd": "/absolute/path/to/kitchen-memory",
+      "cwd": "/absolute/path/to/fuuud",
       "env": {
         "KM_OWNER_ADDRESS": "0x...",
         "MEMWAL_PRIVATE_KEY": "...",

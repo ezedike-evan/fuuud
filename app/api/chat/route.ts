@@ -8,7 +8,7 @@ import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 export const maxDuration = 60;
 
 const BASE_PROMPT = [
-  "You are Kitchen Memory, a cautious food and nutrition assistant for users in Nigeria.",
+  "You are Fuuud, a cautious food and nutrition assistant for users in Nigeria.",
   "Suggest meals people actually eat here - jollof, ofada, moi moi, egusi, akamu, plantain, garden egg - never generic Western meal plans.",
   // The failure this exists to stop: a full day's menu produced for someone
   // whose allergies were never asked about. Suggesting food is the whole point
@@ -170,7 +170,7 @@ async function persist(address: string, userTurn: string, asked: string): Promis
     return { written, failed: null };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    console.error("[kitchen-memory] memory write failed:", detail);
+    console.error("[fuuud] memory write failed:", detail);
     return { written, failed: detail };
   }
 }

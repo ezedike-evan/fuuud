@@ -1,4 +1,4 @@
-# Kitchen Memory — Walrus Memory Hackathon submission
+# Fuuud — Walrus Memory Hackathon submission
 
 SuiHub Lagos · 27 Aug 2026
 
@@ -39,7 +39,7 @@ twice. For someone managing diabetes and a groundnut allergy, that is not an
 inconvenience. A forgotten allergy is a hazard, and re-declaring it every
 session is a hazard waiting for the one time you forget.
 
-Kitchen Memory is three surfaces over one record:
+Fuuud is three surfaces over one record:
 
 - **The chat** recalls your conditions and allergies before generating, folds
   them into the system prompt as hard constraints, and screens what comes back.
