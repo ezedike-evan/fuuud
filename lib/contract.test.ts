@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   formatFact, formatTombstone, factProbe, idempotencyKeyFor, isOffTheRecord,
-  resolveConflicts, retractionTarget,
+  resolveConflicts, retractionTarget, factDate,
 } from "./facts.ts";
 import {
   screenReply, buildSafetyConstraintsText, findFlags,
@@ -248,4 +248,28 @@ test("a dislike never outranks a real allergy", () => {
   // Disliking vegetables must not soften the groundnut rule.
   const profile = { allergies: ["groundnuts - hives"], dislikes: ["most vegetables"] };
   assert.equal(screenReply("Akamu with groundnut paste", profile).safe, false);
+});
+
+
+/*
+ * A duplicate written because the dedupe probe was unreachable must be
+ * invisible downstream — that is what makes "write anyway" the safe choice
+ * when the probe fails. See rememberFact in memory-core.
+ */
+test("a duplicate claim collapses to one active fact", () => {
+  const { active, superseded } = resolveConflicts([
+    { text: "2026-08-27 | allergy | suspected groundnut allergy", distance: 0.1, blobId: "b1" },
+    { text: "2026-08-28 | allergy | suspected groundnut allergy", distance: 0.1, blobId: "b2" },
+  ]);
+  assert.equal(active.length, 1);
+  assert.equal(factDate(active[0].text), "2026-08-28");
+  assert.equal(superseded.length, 1);
+});
+
+test("a suspected allergy still screens meals", () => {
+  // The hedge must not weaken the block — someone who says "I think I might be
+  // allergic to groundnut" cannot be served groundnut while they find out.
+  const profile = { allergies: ["suspected groundnut allergy"] };
+  assert.equal(screenReply("Akamu with groundnut paste", profile).safe, false);
+  assert.equal(screenReply("Jollof rice with grilled chicken", profile).safe, true);
 });

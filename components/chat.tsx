@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { openKeysPanel } from "./api-keys-menu";
 import { NO_KEY_CODE } from "@/lib/providers";
@@ -13,7 +14,8 @@ const STARTERS = [
 
 /** Shape of the provenance the route attaches to each assistant message. */
 type Recalled = { text: string; distance: number };
-type Annotation = { recalled?: Recalled[]; provider?: string; model?: string };
+type Stored = { written: string[]; failed: string | null };
+type Annotation = { recalled?: Recalled[]; provider?: string; model?: string; stored?: Stored };
 
 /** `2026-08-27 | allergy | groundnuts - hives` → its three parts. */
 function parseFact(stored: string) {
@@ -25,14 +27,30 @@ function parseFact(stored: string) {
   };
 }
 
+/**
+ * The route annotates a message TWICE: provenance when the answer starts, and
+ * what memory did with the turn when it finishes. Reading only `[0]` silently
+ * dropped the second one, so a saved fact never reached the UI.
+ */
 function annotationOf(annotations: unknown[] | undefined): Annotation | null {
-  const first = annotations?.[0];
-  return first && typeof first === "object" ? (first as Annotation) : null;
+  if (!annotations?.length) return null;
+  const merged = annotations.reduce<Annotation>((acc, entry) => {
+    return entry && typeof entry === "object" ? { ...acc, ...(entry as Annotation) } : acc;
+  }, {});
+  return Object.keys(merged).length ? merged : null;
 }
 
 export default function Chat() {
+  const router = useRouter();
+  /*
+   * The memory rail is rendered by the /agent server component at page load.
+   * Nothing re-ran it, so a fact written during the conversation stayed
+   * invisible until a manual reload — the rail said "nothing stored yet" for
+   * the entire session no matter what was saved. The route awaits its writes
+   * before closing the stream, so by the time this fires the fact has landed.
+   */
   const { messages, input, handleInputChange, handleSubmit, status, append, error, reload } =
-    useChat({ api: "/api/chat" });
+    useChat({ api: "/api/chat", onFinish: () => router.refresh() });
   const busy = status === "streaming" || status === "submitted";
 
   // Which message's provenance is expanded. Chips are a summary; the full
@@ -78,6 +96,7 @@ export default function Chat() {
 
             const note = annotationOf(m.annotations);
             const recalled = note?.recalled ?? [];
+            const stored = note?.stored;
             const open = openOn === m.id;
 
             return (
@@ -127,14 +146,41 @@ export default function Chat() {
                     </ul>
                   )}
 
-                  <div className="mt-4 flex items-center justify-between gap-4 border-t border-line-soft pt-3">
+                  {/*
+                    Reading and writing are different events and this footer used
+                    to conflate them: it printed "nothing stored yet" whenever
+                    the turn RECALLED nothing, which is also true of every first
+                    turn and of a turn that just saved an allergy. Report the two
+                    separately, and never claim the record is empty on the
+                    strength of a recall.
+                  */}
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line-soft pt-3">
                     <span className="text-[11.5px] text-ink-faint">
                       {note?.model ? `${note.model}` : ""}
                     </span>
-                    <span className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
-                      {recalled.length
-                        ? `recalled ${recalled.length} stored fact${recalled.length === 1 ? "" : "s"}`
-                        : "nothing stored yet"}
+                    <span className="flex flex-wrap items-center gap-2">
+                      {stored?.failed ? (
+                        <span
+                          className="rounded-full px-2.5 py-1 text-[11px] text-danger"
+                          style={{ background: "color-mix(in oklab, var(--c-danger) 12%, transparent)" }}
+                          title={stored.failed}
+                        >
+                          could not save this turn
+                        </span>
+                      ) : stored?.written.length ? (
+                        <span
+                          className="rounded-full px-2.5 py-1 text-[11px]"
+                          style={{ background: "color-mix(in oklab, var(--c-accent) 14%, transparent)", color: "var(--c-accent)" }}
+                          title={stored.written.join("\n")}
+                        >
+                          saved {stored.written.length} fact{stored.written.length === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
+                      <span className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
+                        {recalled.length
+                          ? `recalled ${recalled.length} fact${recalled.length === 1 ? "" : "s"}`
+                          : "recalled nothing"}
+                      </span>
                     </span>
                   </div>
                 </div>

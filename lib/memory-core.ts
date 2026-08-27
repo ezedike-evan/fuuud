@@ -207,17 +207,40 @@ export async function rememberFact(
   const namespace = KIND_NAMESPACE[kind](address);
   const memwal = getMemWal(namespace);
 
-  // Probe with the STORED shape, not the bare claim — see factProbe.
-  const nearby = await withRelayerRetry(`dedupe ${namespace}`, () => memwal.recall({
-    query: factProbe(kind, text),
-    namespace,
-    limit: 5,
-    maxDistance: DUPLICATE_DISTANCE,
-  }));
-
-  const closest = nearby.results
-    .filter((r) => r.distance < DUPLICATE_DISTANCE)
-    .sort((a, b) => a.distance - b.distance)[0];
+  /*
+   * Probe with the STORED shape, not the bare claim — see factProbe.
+   *
+   * THE PROBE MUST NEVER SINK THE WRITE. The SDK aborts a recall after a
+   * hardcoded 15s (memwal.js: `setTimeout(() => ac.abort(), 15000)`), and
+   * withRelayerRetry only retries 401 throttles — so a slow relayer threw an
+   * AbortError out of here, the caller caught it, and the person's allergy was
+   * dropped on the floor. Deduplication is an optimisation; recording the fact
+   * is the product.
+   *
+   * Writing without the probe risks a second copy of a claim already stored.
+   * That is the cheap failure: same-day repeats collapse onto one job via the
+   * idempotency key, and resolveConflicts keeps only the newest entry per claim
+   * body, so a duplicate is invisible downstream. A lost allergy is not
+   * recoverable by anything.
+   */
+  let closest: { text: string; distance: number } | undefined;
+  try {
+    const nearby = await withRelayerRetry(`dedupe ${namespace}`, () => memwal.recall({
+      query: factProbe(kind, text),
+      namespace,
+      limit: 5,
+      maxDistance: DUPLICATE_DISTANCE,
+    }));
+    closest = nearby.results
+      .filter((r) => r.distance < DUPLICATE_DISTANCE)
+      .sort((a, b) => a.distance - b.distance)[0];
+  } catch (error) {
+    console.warn(
+      `[kitchen-memory] dedupe probe failed for ${namespace} ` +
+        `(${error instanceof Error ? error.message : String(error)}) — ` +
+        "writing the fact anyway rather than losing it.",
+    );
+  }
 
   if (closest && sameFact(closest.text, text)) {
     return { status: "skipped", reason: "duplicate", existing: closest.text };

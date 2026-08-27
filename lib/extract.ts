@@ -44,11 +44,25 @@ eat pork", "I'm not a veg person"). A craving is about right now ("I fancy
 jollof tonight", "not in the mood for rice"). Write the first, never the second.
 When it is genuinely unclear, do not write.
 
+A SUSPECTED ALLERGY IS STILL AN ALLERGY. "I think I might be allergic to
+groundnut", "groundnut may not agree with me", "I'm not sure but nuts seem to
+affect me" ALL get written, as an allergy, with the doubt kept in the text:
+"suspected groundnut allergy". Do not discard it as speculation. Getting this
+wrong means the agent keeps serving someone the thing they just flagged, and
+the cost of storing a suspicion that turns out to be nothing is that they
+correct it later.
+
+The same applies to a hedged condition: "I think I'm becoming diabetic" is a
+condition, written as "suspected diabetes".
+
 NEVER write:
 - cravings or one-off wants ("I fancy jollof tonight")
 - small talk, greetings, thanks
 - anything the assistant said. Only facts the USER asserted about themselves.
-- speculation, questions, or hypotheticals ("what if I were diabetic?")
+- hypotheticals about a state they do NOT claim ("what if I were diabetic?",
+  "is jollof bad for someone with an ulcer?"). The line is whether they are
+  talking about their own body. "I might be allergic" is about them - write it.
+  "What if I were allergic" is not - skip it.
 
 CARRY THE SEVERITY they gave you. "groundnuts - anaphylaxis, carries an epipen"
 and "groundnuts - mild bloating" are different facts about different risks.
@@ -63,17 +77,42 @@ tell which year they mean, leave the date out. Never guess a date.
 ONE TURN CAN CARRY TWO FACTS. "I have no allergies but I don't like veg" is a
 clearance AND a dislike — return both. Do not stop at the first.
 
+RESOLVE SHORT ANSWERS AGAINST THE QUESTION. You may be given the assistant's
+previous question. A reply like "none that I know of", "no", "nope none" or
+"just the groundnut one" only means something next to what was asked. If the
+question asked about allergies and conditions and they answer "none that I know
+of", that is a clearance: "no known allergies".
+
+The question is CONTEXT ONLY. Never write a fact the assistant suggested or
+implied - only what the USER asserted about themselves in their own turn.
+
 Return an empty array when the turn contains none of the above. An empty array
 is the correct and common answer. Do not invent facts to seem useful.`;
 
+/**
+ * `assistantAsked` is the agent's previous turn.
+ *
+ * Without it a short answer is unextractable. The agent now asks about
+ * allergies before it suggests anything, so the most important turn in the
+ * whole conversation is usually a bare "none that I know of" — which, read on
+ * its own, asserts nothing at all. It was being dropped for exactly that
+ * reason. The question is passed as context so the answer can be resolved
+ * against it, and the prompt forbids treating anything in the question itself
+ * as a fact.
+ */
 export async function extractFacts(
   userTurn: string,
+  assistantAsked?: string,
 ): Promise<Array<{ kind: FactKind; text: string }>> {
+  const prompt = assistantAsked?.trim()
+    ? `The assistant asked:\n"""\n${assistantAsked.trim()}\n"""\n\nThe user replied:\n"""\n${userTurn}\n"""`
+    : userTurn;
+
   const { object } = await generateObject({
     model: await extractModel(),
     schema: FactSchema,
     system: EXTRACTION_PROMPT,
-    prompt: userTurn,
+    prompt,
   });
   return object.facts;
 }

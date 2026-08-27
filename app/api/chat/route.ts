@@ -28,6 +28,15 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json();
   const latest: string = messages.at(-1)?.content ?? "";
+  /*
+   * The agent's previous turn. Needed because it now ASKS about allergies
+   * before suggesting anything, so the reply that matters most is usually a
+   * bare "none that I know of" — meaningless to the extractor on its own.
+   */
+  const asked: string = [...messages]
+    .slice(0, -1)
+    .reverse()
+    .find((m: { role: string }) => m.role === "assistant")?.content ?? "";
 
   // ONE recall per turn, both namespaces in parallel. Never recall per-route.
   //
@@ -102,26 +111,48 @@ export async function POST(req: Request) {
     model: described.chat,
   });
 
-  // Write path runs alongside generation, gated by the extraction rules.
-  void persist(address, latest);
+  // Write path runs alongside generation, gated by the extraction rules. It is
+  // started now so extraction overlaps the answer, but AWAITED before the
+  // stream closes: the client refreshes its memory rail on finish, and a rail
+  // read that races the write shows "nothing stored yet" for a fact that is
+  // about to land. That mismatch is the whole reason to show a rail at all.
+  const writing = persist(address, latest, asked);
 
   const result = streamText({
     model,
     system,
     messages,
-    onFinish: () => void data.close(),
+    onFinish: async () => {
+      const stored = await writing;
+      // Report what the turn actually did with memory. Silence here is what
+      // made a failed write indistinguishable from a turn with nothing to save.
+      data.appendMessageAnnotation({ stored });
+      data.close();
+    },
   });
   return result.toDataStreamResponse({ data });
 }
 
-async function persist(address: string, userTurn: string) {
+type StoredReport = { written: string[]; failed: string | null };
+
+/**
+ * Returns what happened rather than swallowing it. A write that fails silently
+ * in a health record is worse than one that fails loudly: the person carries on
+ * believing the agent knows about their allergy.
+ */
+async function persist(address: string, userTurn: string, asked: string): Promise<StoredReport> {
+  const written: string[] = [];
   try {
-    if (!userTurn.trim() || isOffTheRecord(userTurn)) return;
-    const facts = await extractFacts(userTurn);
+    if (!userTurn.trim() || isOffTheRecord(userTurn)) return { written, failed: null };
+    const facts = await extractFacts(userTurn, asked);
     for (const fact of facts) {
-      await rememberFact(address, fact.kind, fact.text, { userTurn });
+      const outcome = await rememberFact(address, fact.kind, fact.text, { userTurn });
+      if (outcome.status === "written") written.push(`${fact.kind}: ${fact.text}`);
     }
+    return { written, failed: null };
   } catch (error) {
-    console.error("memory write failed", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[kitchen-memory] memory write failed:", detail);
+    return { written, failed: detail };
   }
 }
