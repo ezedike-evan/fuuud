@@ -11,7 +11,8 @@
     "smoke": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/smoke.ts",
     "mcp": "node --experimental-strip-types mcp/server.mts",
     "mcp:probe": "node --env-file-if-exists=.env.local scripts/mcp-probe.mjs",
-    "blobs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/blob-ids.mts"
+    "blobs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/blob-ids.mts",
+    "blob-status": "node --env-file-if-exists=.env --experimental-strip-types scripts/blob-status.mts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",

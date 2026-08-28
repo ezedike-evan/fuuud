@@ -1,5 +1,9 @@
+import { blobExplorerUrl } from "@/lib/walrus-links";
+
 export type RailFact = {
   date: string;
+  /** Walrus blob holding this entry. Absent only for a fact read from a mock. */
+  blobId?: string;
   kind: "condition" | "allergy" | "clearance" | "rejection" | "symptom" | "dislike" | "preference" | "goal" | "observance" | "household" | "practical" | "fact";
   claim: string;
   superseded?: boolean;
@@ -67,7 +71,26 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
               <p className={`text-[13.5px] leading-snug ${f.superseded ? "text-ink-muted line-through" : "text-ink"}`}>
                 {f.claim}
               </p>
-              <p className="mt-1.5 font-mono text-[10.5px] text-ink-faint">{f.date}</p>
+              <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                <span className="font-mono text-[10.5px] text-ink-faint">{f.date}</span>
+                {/*
+                  The entry, on Walrus, for anyone to check. The ciphertext is
+                  public and unreadable without the keys — which is exactly what
+                  makes it worth linking: you can verify it exists without
+                  being able to read it.
+                */}
+                {f.blobId && (
+                  <a
+                    href={blobExplorerUrl(f.blobId)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={`Walrus blob ${f.blobId}`}
+                    className="font-mono text-[10px] text-ink-faint underline underline-offset-2 transition-colors hover:text-accent"
+                  >
+                    blob ↗
+                  </a>
+                )}
+              </div>
             </li>
           ))}
         </ul>

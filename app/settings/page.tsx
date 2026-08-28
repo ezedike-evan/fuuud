@@ -3,12 +3,13 @@ import { getOwnerAddress } from "@/lib/session.ts";
 import { listMemory } from "@/app/actions/memory";
 import AppShell from "@/components/app-shell";
 import ForgetButton from "@/components/forget-button";
+import { blobExplorerUrl } from "@/lib/walrus-links";
 
 export const dynamic = "force-dynamic";
 
-type Row = { date: string; kind: string; claim: string; distance: number };
+type Row = { date: string; kind: string; claim: string; distance: number; blobId?: string };
 
-function toRows(facts: { text: string; distance: number }[]): Row[] {
+function toRows(facts: { text: string; distance: number; blobId?: string }[]): Row[] {
   return facts.map((f) => {
     const [date, kind, body] = f.text.split("|").map((p) => p.trim());
     return {
@@ -16,6 +17,7 @@ function toRows(facts: { text: string; distance: number }[]): Row[] {
       kind: kind ?? "fact",
       claim: (body ?? f.text).split(" - SUPERSEDES:")[0].trim(),
       distance: f.distance,
+      blobId: f.blobId,
     };
   });
 }
@@ -102,7 +104,20 @@ export default async function SettingsPage() {
                     {r.kind}
                   </span>
                   <span className="fact min-w-0 break-words">{r.claim}</span>
-                  <span className="font-mono text-xs tabular-nums text-ink-faint">{r.distance.toFixed(3)}</span>
+                  <span className="flex items-baseline gap-2 font-mono text-xs tabular-nums text-ink-faint">
+                    {r.distance.toFixed(3)}
+                    {r.blobId && (
+                      <a
+                        href={blobExplorerUrl(r.blobId)}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        title={`Walrus blob ${r.blobId}`}
+                        className="text-[10px] underline underline-offset-2 transition-colors hover:text-accent"
+                      >
+                        blob ↗
+                      </a>
+                    )}
+                  </span>
                   <ForgetButton claim={r.claim} />
                 </div>
               ))}

@@ -245,7 +245,18 @@ export function resolveConflicts(facts: RecalledFact[]) {
   const superseded: RecalledFact[] = [];
   const retracted: RecalledFact[] = [];
   for (const [body, group] of byBody) {
-    const sorted = [...group].sort((a, b) => factDate(b.text).localeCompare(factDate(a.text)));
+    /*
+     * Newest date wins. On a SAME-DAY tie, the fact that stamped SUPERSEDES
+     * wins — it was written knowing about the other one and said so, which is
+     * the only ordering signal available inside a single day. Reversing a
+     * preference in the same conversation ("I like veg" … "actually I don't")
+     * is common enough that leaving this to insertion order is a coin toss.
+     */
+    const sorted = [...group].sort((a, b) => {
+      const byDate = factDate(b.text).localeCompare(factDate(a.text));
+      if (byDate !== 0) return byDate;
+      return Number(b.text.includes(" - SUPERSEDES:")) - Number(a.text.includes(" - SUPERSEDES:"));
+    });
     // A same-day retraction wins: you only retract a claim that already exists.
     const killed = retractions.get(body);
     if (killed !== undefined && killed >= factDate(sorted[0].text)) {

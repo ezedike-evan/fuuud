@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   formatFact, formatTombstone, factProbe, idempotencyKeyFor, isOffTheRecord,
-  resolveConflicts, retractionTarget, factDate, unionFacts,
+  resolveConflicts, retractionTarget, factDate, unionFacts, sameFact, factKind,
 } from "./facts.ts";
 import {
   screenReply, buildSafetyConstraintsText, findFlags,
@@ -592,4 +592,48 @@ test("who they cook for reaches the model", () => {
 test("a preference can never make a meal unsafe, but a rule can", () => {
   assert.equal(screenReply("Suya", { likes: ["suya"], practical: ["tight budget"] }).safe, true);
   assert.equal(screenReply("Pork suya", { observances: ["no pork"] }).safe, false);
+});
+
+
+/*
+ * Reported from a live run: "I like more veggies" was stored, then "I do not
+ * like much vegetables" saved nothing at all. The dedupe probe compared claim
+ * bodies and ignored the kind, so the reversal looked like a duplicate of the
+ * fact it contradicted — the record could not express a change of mind.
+ */
+test("a reversal is a contradiction, not a duplicate", () => {
+  const stored = "2026-08-27 | preference | vegetables";
+  // Same claim, same kind -> genuinely a duplicate.
+  assert.equal(sameFact(stored, "vegetables", "preference"), true);
+  // Same claim, opposite kind -> must NOT be skipped as a duplicate.
+  assert.equal(sameFact(stored, "vegetables", "dislike"), false);
+});
+
+test("sameFact without a kind still behaves as before", () => {
+  // forgetFact only has a claim to go on, so the kindless form must not change.
+  assert.equal(sameFact("2026-08-27 | allergy | groundnuts - hives", "groundnuts - hives"), true);
+});
+
+test("a same-day reversal is decided by the SUPERSEDES stamp, not luck", () => {
+  const { active, superseded } = resolveConflicts([
+    { text: "2026-08-28 | preference | vegetables", distance: 0.1, blobId: "b1" },
+    { text: "2026-08-28 | dislike | vegetables - SUPERSEDES: vegetables", distance: 0.1, blobId: "b2" },
+  ]);
+  assert.equal(active.length, 1);
+  assert.equal(factKind(active[0].text), "dislike", "the later, superseding fact wins the tie");
+  assert.equal(superseded.length, 1);
+});
+
+test("a reversal on a later day still wins on date alone", () => {
+  const { active } = resolveConflicts([
+    { text: "2026-08-28 | dislike | vegetables", distance: 0.1, blobId: "b2" },
+    { text: "2026-08-27 | preference | vegetables", distance: 0.1, blobId: "b1" },
+  ]);
+  assert.equal(factKind(active[0].text), "dislike");
+});
+
+test("a preparation dislike screens and reads like any other", () => {
+  // "less pepper" had no home before: it is neither a food nor a condition.
+  const text = buildSafetyConstraintsText({ cleared: true, dislikes: ["a lot of pepper"] });
+  assert.match(text, /They dislike: a lot of pepper/);
 });

@@ -7,13 +7,19 @@ import MemoryRail, { type RailFact } from "@/components/memory-rail";
 
 export const dynamic = "force-dynamic";
 
-function toRail(facts: { text: string }[], superseded = false): RailFact[] {
+function toRail(
+  facts: { text: string; blobId?: string }[],
+  superseded = false,
+): RailFact[] {
   return facts.map((f) => {
     const [date, kind, body] = f.text.split("|").map((p) => p.trim());
     return {
       date: date ?? "",
       kind: (kind ?? "fact") as RailFact["kind"],
       claim: (body ?? f.text).split(" - SUPERSEDES:")[0].trim(),
+      // Carried through so the rail can link the actual blob on Walrus. It was
+      // being dropped here, which is why the record was invisible outside the app.
+      blobId: f.blobId,
       superseded,
     };
   });

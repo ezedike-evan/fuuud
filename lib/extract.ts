@@ -34,10 +34,17 @@ WRITE a fact only when the USER asserts one of these:
              stops the agent asking the same question every session.
 - rejection: a suggestion refused WITH a reason ("no, palm oil upsets me")
 - symptom:   a symptom experienced after eating something
-- dislike:   a STANDING food they avoid by taste ("I don't like a lot of
-             vegetables", "I can't stand okra"). Write only the THING:
-             "most vegetables", "okra".
-- preference: a STANDING food they LIKE ("I like more veggies", "I love pepper
+- dislike:   a STANDING food they avoid by taste, OR how they do not want food
+             prepared ("I don't like a lot of vegetables", "I can't stand
+             okra", "less pepper please", "not too salty", "too much oil").
+             Write only the THING: "most vegetables", "okra", "a lot of
+             pepper", "very salty food", "heavy oil".
+
+             HOW A DISH IS COOKED IS A PREFERENCE TOO. Heat, salt, oil and
+             portion size are exactly what people ask about, and "less pepper"
+             is as durable a request as "no okra" - they will not want to say
+             it again next week.
+- preference: a STANDING food they LIKE, or how they want food PREPARED ("I like more veggies", "I love pepper
              soup", "I'm a big fish person"). Write only the THING:
              "vegetables", "pepper soup", "fish". This is how meals get planned
              around what someone actually enjoys, so do not skip it as small
@@ -61,6 +68,13 @@ WRITE a fact only when the USER asserts one of these:
              Write it as the aim: "cutting back on sugar", "more protein".
              Not a condition - they are not claiming a diagnosis. Not a dislike
              - they may well like the thing they are cutting.
+
+A NEGATION FLIPS THE KIND. "I like vegetables" is a preference; "I do NOT like
+vegetables" is a dislike of the same thing. Read the polarity of the sentence
+before you pick the kind - getting it backwards records the opposite of what
+they said. If they contradict something they told you earlier, still write the
+new one: the record resolves which is current by date, and it cannot do that
+for a fact you never wrote.
 
 AN OBSERVANCE IS NOT A DISLIKE. "I don't eat pork" is an observance when it is
 a rule they keep, and a dislike only when it is plainly about taste ("pork is
