@@ -17,11 +17,22 @@ const NAV = [
  * control strip against the black.
  */
 export default function AppShell({
-  address, active, children,
-}: { address: string; active: string; children: React.ReactNode }) {
+  address, active, children, fixedViewport = false,
+}: {
+  address: string;
+  active: string;
+  children: React.ReactNode;
+  /**
+   * One screen, no page scroll — anything long scrolls inside its own region.
+   * The agent view opts in so the header and the memory rail stay put while a
+   * conversation grows. Document-shaped pages (the ledger, the calendar) leave
+   * it off and scroll normally.
+   */
+  fixedViewport?: boolean;
+}) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-7 py-4">
+    <div className={fixedViewport ? "flex h-dvh flex-col overflow-hidden" : "flex min-h-dvh flex-col"}>
+      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-6 px-7 py-4">
         <Link href="/agent" className="justify-self-start"><Wordmark /></Link>
 
         <nav className="segmented justify-self-center text-[13.5px]">

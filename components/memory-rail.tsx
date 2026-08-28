@@ -29,18 +29,23 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
   const active = facts.filter((f) => !f.superseded);
 
   return (
-    <aside className="flex flex-col gap-5 border-l border-line-soft bg-recess px-6 py-8">
-      <div className="flex items-baseline justify-between">
+    /*
+      The rail is fixed to the height of its column. The heading and the footer
+      note stay put; only the list of facts scrolls, so a person with thirty
+      stored facts sees the same layout as one with three.
+    */
+    <aside className="flex h-full min-h-0 flex-col gap-5 overflow-hidden border-l border-line-soft bg-recess px-6 py-8">
+      <div className="flex shrink-0 items-baseline justify-between">
         <span className="eyebrow">What it knows</span>
         <span className="font-mono text-[11px] text-ink-faint">{active.length}</span>
       </div>
 
       {facts.length === 0 ? (
-        <p className="rounded-[10px] border border-dashed border-line px-3.5 py-5 text-center text-[12.5px] leading-relaxed text-ink-faint">
-          Nothing yet. Tell it about a condition or an allergy and it will appear here.
+        <p className="shrink-0 rounded-[10px] border border-dashed border-line px-3.5 py-5 text-center text-[12.5px] leading-relaxed text-ink-faint">
+          Nothing yet. Tell it about a condition, an allergy, something you like or a budget, and it will appear here.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="-mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
           {facts.map((f, i) => (
             <li
               key={`${f.date}-${f.claim}-${i}`}
@@ -68,9 +73,9 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
         </ul>
       )}
 
-      <div className="flex-1" />
-
-      <div className="rounded-[10px] border border-line p-3.5">
+      {/* The list above owns the free space now, so no spacer is needed and
+          this note is pinned to the bottom of the rail. */}
+      <div className="shrink-0 rounded-[10px] border border-line p-3.5">
         <div className="mb-1.5 flex items-center gap-[7px]">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted">
             <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6l7-3Z" />

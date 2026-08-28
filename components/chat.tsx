@@ -58,9 +58,14 @@ export default function Chat() {
   const [openOn, setOpenOn] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-col px-6">
+    /*
+      The chat column is exactly the height of its grid cell. Only the message
+      list scrolls: the composer below is a sibling, not a `sticky` child, so it
+      cannot drift with the content or overlap the last reply.
+    */
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-6">
       {messages.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center py-16">
+        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-16">
           <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-[-0.03em]">
             What should you eat?
           </h1>
@@ -82,7 +87,7 @@ export default function Chat() {
           </div>
         </div>
       ) : (
-        <ol className="flex flex-col gap-7 overflow-y-auto py-10">
+        <ol className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto py-10">
           {messages.map((m) => {
             if (m.role === "user") {
               return (
@@ -251,9 +256,10 @@ export default function Chat() {
         );
       })()}
 
-      <div className="flex-1" />
-
-      <form onSubmit={handleSubmit} className="sticky bottom-0 bg-canvas pb-6 pt-3">
+      {/* No spacer and no `sticky`: the message list above owns the free space
+          and does the scrolling, so the composer simply sits at the bottom of
+          a fixed column. */}
+      <form onSubmit={handleSubmit} className="shrink-0 bg-canvas pb-6 pt-3">
         <div className="card px-3 pb-3 pt-3.5">
           <input
             value={input}

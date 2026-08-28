@@ -46,8 +46,8 @@ export default async function AgentPage() {
   ];
 
   return (
-    <AppShell address={address} active="/agent">
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_328px]">
+    <AppShell address={address} active="/agent" fixedViewport>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_328px] overflow-hidden">
         <Chat />
         <MemoryRail facts={facts} />
       </div>
