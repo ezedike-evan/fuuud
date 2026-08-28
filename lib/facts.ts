@@ -203,9 +203,30 @@ export function retractionTarget(stored: string) {
  * for both. The date is in the key so a genuine re-assertion tomorrow still
  * lands as its own entry.
  */
-export function idempotencyKeyFor(namespace: string, kind: string, text: string) {
+/**
+ * THE KEY IS DERIVED FROM THE EXACT LINE BEING WRITTEN.
+ *
+ * It used to be built from (namespace, kind, claim, today) while the content
+ * sent was `formatFact(kind, claim, supersedes)` — which carries a
+ * `- SUPERSEDES: ...` clause the key knew nothing about. Write the same claim
+ * twice in one day, once plain and once superseding, and the relayer sees one
+ * key with two different bodies:
+ *
+ *   409 idempotency_key was already used for a request with different content
+ *
+ * Two paths reach that. A contradiction now WRITES with a supersede stamp
+ * rather than being skipped; and when the dedupe probe times out we write
+ * without a stamp, so a later attempt whose probe succeeds produces the same
+ * claim WITH one.
+ *
+ * Hashing the stored line keeps the original guarantee — a retry of an
+ * identical write collapses onto the same job instead of billing twice — while
+ * letting genuinely different content take its own key. The date and the kind
+ * are still in the key, because they are in the line.
+ */
+export function idempotencyKeyFor(namespace: string, storedLine: string) {
   return createHash("sha256")
-    .update(`${namespace} ${kind} ${text.trim().toLowerCase()} ${today()}`)
+    .update(`${namespace} ${storedLine.trim().toLowerCase()}`)
     .digest("hex");
 }
 

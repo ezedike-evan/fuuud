@@ -302,7 +302,7 @@ export async function rememberFact(
   await withRelayerRetry(`write ${namespace}`, () =>
     memwal.rememberAndWait(stored, namespace, {
       timeoutMs: INDEX_TIMEOUT_MS,
-      idempotencyKey: idempotencyKeyFor(namespace, kind, text),
+      idempotencyKey: idempotencyKeyFor(namespace, stored),
     }),
   );
 
@@ -376,7 +376,7 @@ export async function forgetFact(address: string, text: string): Promise<ForgetO
   await withRelayerRetry(`retract ${hit.namespace}`, () =>
     getMemWal(hit.namespace).rememberAndWait(tombstone, hit.namespace, {
       timeoutMs: INDEX_TIMEOUT_MS,
-      idempotencyKey: idempotencyKeyFor(hit.namespace, "tombstone", factBody(hit.nearest.text)),
+      idempotencyKey: idempotencyKeyFor(hit.namespace, tombstone),
     }),
   );
 

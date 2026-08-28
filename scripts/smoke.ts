@@ -91,7 +91,7 @@ async function write(ns: string, text: string) {
   const stored = formatFact("allergy", text, closest?.text);
   const result = await withRelayerRetry("write", () => m.rememberAndWait(stored, ns, {
     timeoutMs: 120_000,
-    idempotencyKey: idempotencyKeyFor(ns, "allergy", text),
+    idempotencyKey: idempotencyKeyFor(ns, stored),
   }));
   return { skipped: false as const, stored, blobId: result.blob_id };
 }
@@ -101,10 +101,12 @@ async function write(ns: string, text: string) {
  * conference wifi looks like from the relayer's side. It must collapse onto the
  * original job rather than writing the person's allergy to their record twice.
  */
-async function rewriteWithSameKey(ns: string, text: string, stored: string) {
+async function rewriteWithSameKey(ns: string, _text: string, stored: string) {
   const result = await withRelayerRetry("rewrite", () => client(ns).rememberAndWait(stored, ns, {
     timeoutMs: 120_000,
-    idempotencyKey: idempotencyKeyFor(ns, "allergy", text),
+    // Keyed off the stored LINE, exactly as the first write was — that is what
+    // makes a retry collapse instead of returning 409.
+    idempotencyKey: idempotencyKeyFor(ns, stored),
   }));
   return result.blob_id;
 }
@@ -114,7 +116,7 @@ async function retract(ns: string, storedText: string) {
   const tombstone = formatTombstone(storedText);
   await withRelayerRetry("retract", () => client(ns).rememberAndWait(tombstone, ns, {
     timeoutMs: 120_000,
-    idempotencyKey: idempotencyKeyFor(ns, "tombstone", factBody(storedText)),
+    idempotencyKey: idempotencyKeyFor(ns, tombstone),
   }));
   return tombstone;
 }

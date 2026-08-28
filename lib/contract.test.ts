@@ -128,20 +128,37 @@ test("the dedupe probe has the same shape as a stored fact", () => {
   assert.notEqual(probe, factProbe("condition", "groundnuts - hives"));
 });
 
-test("one claim written twice carries one idempotency key", () => {
+test("one identical write carries one idempotency key", () => {
   const ns = "kitchen:health:0xabc";
-  assert.equal(
-    idempotencyKeyFor(ns, "allergy", "groundnuts - hives"),
-    idempotencyKeyFor(ns, "allergy", "  Groundnuts - Hives  "),
-  );
+  const stored = formatFact("allergy", "groundnuts - hives");
+  // A retry of the SAME line must collapse onto the same job.
+  assert.equal(idempotencyKeyFor(ns, stored), idempotencyKeyFor(ns, `  ${stored.toUpperCase()}  `));
+  // A different claim is a different write.
   assert.notEqual(
-    idempotencyKeyFor(ns, "allergy", "groundnuts - hives"),
-    idempotencyKeyFor(ns, "allergy", "groundnut allergy resolved"),
+    idempotencyKeyFor(ns, stored),
+    idempotencyKeyFor(ns, formatFact("allergy", "groundnut allergy resolved")),
   );
-  // Two people's records must never collapse onto one write.
+  // The same claim in another namespace is another write.
+  assert.notEqual(idempotencyKeyFor(ns, stored), idempotencyKeyFor("kitchen:health:0xdef", stored));
+});
+
+/*
+ * The 409 we actually hit:
+ *   "idempotency_key was already used for a request with different content"
+ *
+ * The key was built from (namespace, kind, claim, today) while the CONTENT
+ * carried a `- SUPERSEDES:` clause the key knew nothing about. Writing the same
+ * claim plain and then superseding produced one key with two bodies.
+ */
+test("a supersede stamp changes the key, because it changes the content", () => {
+  const ns = "kitchen:feedback:0xabc";
+  const plain = formatFact("dislike", "vegetables");
+  const superseding = formatFact("dislike", "vegetables", "vegetables");
+  assert.notEqual(plain, superseding, "the content differs");
   assert.notEqual(
-    idempotencyKeyFor(ns, "allergy", "groundnuts - hives"),
-    idempotencyKeyFor("kitchen:health:0xdef", "allergy", "groundnuts - hives"),
+    idempotencyKeyFor(ns, plain),
+    idempotencyKeyFor(ns, superseding),
+    "so the key must differ too, or the relayer returns 409",
   );
 });
 
