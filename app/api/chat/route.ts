@@ -79,6 +79,9 @@ export async function POST(req: Request) {
     );
   }
 
+  // Kicked off here so extraction overlaps everything below it.
+  const writing = persist(address, latest, asked);
+
   const activeHealth = resolveConflicts(health).active;
   const activeFeedback = resolveConflicts(feedback).active;
   const profile = {
@@ -128,6 +131,24 @@ export async function POST(req: Request) {
    * can see and check rather than take on trust — and if the agent gets it
    * wrong, the chips show exactly which stored fact misled it.
    */
+  /*
+   * The write runs CONCURRENTLY with recall and model resolution, but its
+   * result is reported in the FIRST annotation — the one sent before a single
+   * token streams.
+   *
+   * It used to be appended in `onFinish`, immediately before `data.close()`,
+   * and that report never reached the browser: a turn that saved two facts and
+   * a turn that failed to save looked identical, because neither chip
+   * rendered. The write path was the least reliable part of this app and the
+   * only one with no diagnostic. The first annotation is a delivery path we
+   * know works — it is how the recalled facts arrive.
+   *
+   * The cost is that the first token waits for extraction. Extraction is one
+   * small call and it overlaps the recall above, so in practice it is close to
+   * free; and being told what was saved is worth more than shaving that.
+   */
+  const stored = await writing;
+
   const data = new StreamData();
   data.appendMessageAnnotation({
     recalled: [...activeHealth, ...activeFeedback].map((f) => ({
@@ -136,31 +157,24 @@ export async function POST(req: Request) {
     })),
     provider: described.provider,
     model: described.chat,
+    stored,
   });
-
-  // Write path runs alongside generation, gated by the extraction rules. It is
-  // started now so extraction overlaps the answer, but AWAITED before the
-  // stream closes: the client refreshes its memory rail on finish, and a rail
-  // read that races the write shows "nothing stored yet" for a fact that is
-  // about to land. That mismatch is the whole reason to show a rail at all.
-  const writing = persist(address, latest, asked);
 
   const result = streamText({
     model,
     system,
     messages,
-    onFinish: async () => {
-      const stored = await writing;
-      // Report what the turn actually did with memory. Silence here is what
-      // made a failed write indistinguishable from a turn with nothing to save.
-      data.appendMessageAnnotation({ stored });
-      data.close();
-    },
+    onFinish: () => void data.close(),
   });
   return result.toDataStreamResponse({ data });
 }
 
-type StoredReport = { written: string[]; failed: string | null };
+type StoredReport = {
+  written: string[];
+  /** Already in the record. Not a failure — the record was already right. */
+  skipped: string[];
+  failed: string | null;
+};
 
 /**
  * Returns what happened rather than swallowing it. A write that fails silently
@@ -169,8 +183,9 @@ type StoredReport = { written: string[]; failed: string | null };
  */
 async function persist(address: string, userTurn: string, asked: string): Promise<StoredReport> {
   const written: string[] = [];
+  const skipped: string[] = [];
   try {
-    if (!userTurn.trim() || isOffTheRecord(userTurn)) return { written, failed: null };
+    if (!userTurn.trim() || isOffTheRecord(userTurn)) return { written, skipped, failed: null };
     const facts = await extractFacts(userTurn, asked);
 
     /*
@@ -192,11 +207,15 @@ async function persist(address: string, userTurn: string, asked: string): Promis
     for (const fact of facts) {
       const outcome = await rememberFact(address, fact.kind, fact.text, { userTurn });
       if (outcome.status === "written") written.push(`${fact.kind}: ${fact.text}`);
+      // A duplicate means the record was ALREADY right. Reporting that as
+      // nothing-happened is what makes "it didn't remember" impossible to tell
+      // apart from "it already knew".
+      else if (outcome.reason === "duplicate") skipped.push(`${fact.kind}: ${fact.text}`);
     }
-    return { written, failed: null };
+    return { written, skipped, failed: null };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     console.error("[fuuud] memory write failed:", detail);
-    return { written, failed: detail };
+    return { written, skipped, failed: detail };
   }
 }
