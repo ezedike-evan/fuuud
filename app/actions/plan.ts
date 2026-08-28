@@ -98,13 +98,22 @@ const MealSchema = z.object({
  * dropped rather than saved. A calendar that can quietly schedule the thing
  * someone is allergic to is worse than no calendar.
  */
-export async function generatePlanWeek(): Promise<PlanWeek> {
+export async function generatePlanWeek(justCleared = false): Promise<PlanWeek> {
   const address = await requireOwner();
   const profile = await currentProfile(address);
 
-  // Refuse to plan for someone whose allergies nobody has asked about. Same
-  // rule as the chat agent — a week of meals is seven times the exposure.
-  if (!allergyStatusKnown(profile)) return getPlanWeek();
+  /*
+   * Refuse to plan for someone whose allergies nobody has asked about. Same
+   * rule as the chat agent — a week of meals is seven times the exposure.
+   *
+   * `justCleared` covers the one case where the read cannot be trusted: the
+   * person has just pressed "I have no allergies or conditions" and the write
+   * is milliseconds old. Depending on recall to see it immediately would send
+   * them back to the same blocked screen they just answered, which reads as
+   * the button being broken.
+   */
+  if (!justCleared && !allergyStatusKnown(profile)) return getPlanWeek();
+  const planningProfile = justCleared ? { ...profile, cleared: true } : profile;
 
   const dates = weekFrom();
   const { object } = await generateObject({
@@ -116,7 +125,7 @@ export async function generatePlanWeek(): Promise<PlanWeek> {
       "Name the dish and its main protein or side. No commentary, no nutrition notes, no brand names.",
       "Vary it across the week. Do not repeat the same dish twice in three days.",
       "",
-      buildSafetyConstraintsText(profile),
+      buildSafetyConstraintsText(planningProfile),
     ].join("\n"),
     prompt:
       `Plan breakfast, lunch and dinner for each of these dates: ${dates.join(", ")}. ` +
@@ -128,7 +137,7 @@ export async function generatePlanWeek(): Promise<PlanWeek> {
     .map((m) => ({ date: m.date, slot: m.slot as Slot, meal: m.meal.trim() }));
 
   // The gate. Unsafe proposals are discarded, never stored and never shown.
-  const safe = screenPlan(proposed, profile).filter((m) => m.safe);
+  const safe = screenPlan(proposed, planningProfile).filter((m) => m.safe);
 
   for (const meal of safe) {
     await rememberFact(address, "plan", formatPlanClaim(meal)).catch((error) => {
@@ -138,6 +147,34 @@ export async function generatePlanWeek(): Promise<PlanWeek> {
 
   revalidatePath("/calendar");
   return getPlanWeek();
+}
+
+/**
+ * "I have nothing to declare."
+ *
+ * The planner refuses to build a week before it knows about allergies, which
+ * is right — but having no allergies is an ANSWER, not a missing answer, and
+ * there was no way to give it from this page. That made the calendar look like
+ * a feature reserved for people with a diagnosis, which is the opposite of the
+ * intent: most people have nothing to declare and still want dinner sorted.
+ *
+ * This writes the clearance the same way a conversation would, so it lands in
+ * the record, shows up in the ledger, and can be corrected later by simply
+ * telling the agent about a condition — the newer fact wins on date.
+ */
+export async function declareNoRestrictions(): Promise<PlanWeek> {
+  const address = await requireOwner();
+  for (const claim of ["no known allergies", "no known medical conditions"]) {
+    await rememberFact(address, "clearance", claim).catch((error) => {
+      console.error("[fuuud] could not store clearance:", error);
+    });
+  }
+  revalidatePath("/calendar");
+  revalidatePath("/agent");
+  // Plan straight away rather than waiting for the clearance to come back
+  // through recall — the person has answered, and being asked again would look
+  // like the button did nothing.
+  return generatePlanWeek(true);
 }
 
 /** Drop one meal from the calendar. Retraction, not deletion — same as a fact. */

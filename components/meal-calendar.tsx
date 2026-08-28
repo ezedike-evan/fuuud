@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { generatePlanWeek, removeMeal, type PlanWeek } from "@/app/actions/plan";
+import { generatePlanWeek, removeMeal, declareNoRestrictions, type PlanWeek } from "@/app/actions/plan";
 import { SLOTS, dayLabel } from "@/lib/plan";
 
 /**
@@ -41,12 +41,32 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
           </h1>
           <p className="mt-2.5 max-w-[58ch] text-[14.5px] leading-relaxed text-ink-muted">
             {week.blocked
-              ? "Nothing planned yet. The agent will not plan a week of meals before it knows your allergies — tell it once and come back."
+              ? "Before it plans seven days of food, it needs to know whether there is anything you cannot eat. If there is nothing, say so once and it will not ask again."
               : "Every meal here is checked against your record each time this page loads, not just when it was planned."}
           </p>
         </div>
 
-        {!week.blocked && (
+        {week.blocked ? (
+          /*
+            Having nothing to declare is an ANSWER. Without this the calendar
+            was effectively gated behind having a diagnosis, which is exactly
+            backwards — most people have no restrictions and still want the
+            week planned.
+          */
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(declareNoRestrictions)}
+              className="cta h-11 px-5 text-[14px] disabled:opacity-40"
+            >
+              {busy ? "Planning…" : "I have no allergies or conditions"}
+            </button>
+            <a href="/agent" className="text-[12px] text-ink-faint underline underline-offset-2 hover:text-ink-muted">
+              I do have something to declare →
+            </a>
+          </div>
+        ) : (
           <button
             type="button"
             disabled={busy}

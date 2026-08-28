@@ -637,3 +637,31 @@ test("a preparation dislike screens and reads like any other", () => {
   const text = buildSafetyConstraintsText({ cleared: true, dislikes: ["a lot of pepper"] });
   assert.match(text, /They dislike: a lot of pepper/);
 });
+
+
+/*
+ * Reported from a live run: the meal planner refused to work for someone with
+ * no allergies and no conditions. Having nothing to declare is an ANSWER, and
+ * gating a meal planner behind having a diagnosis is exactly backwards.
+ */
+test("someone with nothing to declare gets a usable plan, not a refusal", () => {
+  const healthy = { conditions: [], allergies: [], cleared: true };
+  assert.equal(allergyStatusKnown(healthy), true);
+
+  const text = buildSafetyConstraintsText(healthy);
+  // No refusal to name a dish...
+  assert.doesNotMatch(text, /Do not name a single specific dish/);
+  assert.doesNotMatch(text, /DO NOT KNOW/);
+  // ...and nothing is blocked, so any ordinary meal screens clean.
+  for (const meal of ["Jollof rice with grilled chicken", "Egusi soup with pounded yam", "Akamu with moi moi"]) {
+    assert.equal(screenReply(meal, healthy).safe, true, meal);
+  }
+});
+
+test("a plan for a cleared person is still screened once they add a condition", () => {
+  // The clearance is not permanent permission — a later fact re-tightens it.
+  const before = { cleared: true, allergies: [] };
+  const after = { cleared: true, allergies: ["groundnuts - hives"] };
+  assert.equal(screenReply("Akamu with groundnut paste", before).safe, true);
+  assert.equal(screenReply("Akamu with groundnut paste", after).safe, false);
+});
