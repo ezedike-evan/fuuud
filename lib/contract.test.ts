@@ -12,6 +12,7 @@ import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
 import { resolveModels, keyFor } from "./model-select.ts";
 import { answersNoRestrictions, isRestrictionQuestion, isBareNegative } from "./clearance.ts";
+import { isTransient } from "./memwal-client.ts";
 import { parsePlan, formatPlanClaim, screenPlan, planFromFacts, weekFrom } from "./plan.ts";
 import { ORDER, PROVIDERS } from "./providers.ts";
 
@@ -731,4 +732,43 @@ test("the clearance floor fires only when both halves are unambiguous", () => {
   assert.equal(answersNoRestrictions("Here is a light dinner.", "none"), false);
   // Right question, but the answer carries a fact the model must read.
   assert.equal(answersNoRestrictions(question, "no, but I don't eat pork"), false);
+});
+
+
+/*
+ * "Why can't it sometimes reach my memory?"
+ *
+ * Because the only retry was for 401 AUTH_REJECTED. The failure this app
+ * actually hits is the SDK's hardcoded 15s recall abort, which was rethrown
+ * immediately — so one slow moment produced "I can't reach your memory right
+ * now" even though the next attempt usually succeeds.
+ */
+test("the failures we actually hit are treated as transient", () => {
+  const abort = new Error("This operation was aborted");
+  abort.name = "AbortError";
+  assert.equal(isTransient(abort), true, "the 15s recall abort");
+
+  assert.equal(isTransient(new Error("fetch failed")), true);
+  assert.equal(isTransient(new Error("socket hang up")), true);
+  assert.equal(isTransient(new Error("Not enough statuses were retrieved to achieve quorum.")), true);
+  assert.equal(isTransient(Object.assign(new Error("bad gateway"), { status: 502 })), true);
+  assert.equal(isTransient(Object.assign(new Error("boom"), { code: "ECONNRESET" })), true);
+});
+
+test("a real disagreement is never retried", () => {
+  // 409: the relayer is telling us the content does not match the key. Sending
+  // it again produces the same 409 and hides the bug.
+  assert.equal(
+    isTransient(Object.assign(new Error("idempotency_key was already used"), { status: 409 })),
+    false,
+  );
+  // 400/401/404 do not improve on repetition either.
+  for (const status of [400, 401, 403, 404]) {
+    assert.equal(isTransient(Object.assign(new Error("nope"), { status })), false, String(status));
+  }
+});
+
+test("an ordinary programming error is not mistaken for a network blip", () => {
+  assert.equal(isTransient(new TypeError("Cannot read properties of undefined")), false);
+  assert.equal(isTransient(null), false);
 });

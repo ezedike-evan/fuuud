@@ -44,21 +44,87 @@ function isThrottle(error: unknown) {
   return e?.status === 401 && e?.serverCode === "AUTH_REJECTED";
 }
 
+/*
+ * TRANSIENT FAILURES, which had no retry at all.
+ *
+ * The throttle ladder above only ever fired on 401. Everything else was
+ * rethrown on the first attempt — including the SDK's own hardcoded 15s recall
+ * abort, which is the failure this app hits most often. One slow moment on the
+ * relayer and the turn came back "I can't reach your memory right now", even
+ * though the very next attempt usually succeeds. We measured exactly that: a
+ * recall failed, and the retry a second later returned the record.
+ *
+ * Safe to retry on both sides of the contract: a recall is a read, and a write
+ * carries a deterministic idempotency key so a repeat collapses onto the
+ * original job instead of storing the fact twice.
+ *
+ * NOT retried: 409 (an idempotency conflict is a real disagreement about
+ * content) and every other 4xx (a bad request does not improve on repetition).
+ */
+const TRANSIENT_CODES = new Set([
+  "ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EAI_AGAIN", "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_SOCKET", "UND_ERR_HEADERS_TIMEOUT",
+]);
+
+const TRANSIENT_TEXT = [
+  "aborted", "fetch failed", "network", "socket hang up",
+  "timeout", "timed out", "econnreset", "quorum",
+];
+
+export function isTransient(error: unknown): boolean {
+  const e = error as { name?: string; status?: number; code?: string; message?: string };
+  if (!e) return false;
+  if (e.name === "AbortError" || e.name === "TimeoutError") return true;
+  if (typeof e.status === "number") {
+    // 5xx is the server having a bad moment; 4xx is us being wrong.
+    if (e.status >= 500) return true;
+    return false;
+  }
+  if (e.code && TRANSIENT_CODES.has(e.code)) return true;
+  const message = (e.message ?? "").toLowerCase();
+  return TRANSIENT_TEXT.some((needle) => message.includes(needle));
+}
+
+/*
+ * Short and fast, unlike the throttle ladder. The abort itself already cost
+ * 15s, so a long backoff on top risks the request budget for no benefit — a
+ * relayer that is merely busy answers on the next try.
+ */
+const TRANSIENT_RETRY_DELAYS_MS = [500, 2_000];
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
+  let throttleAttempt = 0;
+  let transientAttempt = 0;
+
+  for (;;) {
     try {
       return await fn();
     } catch (error) {
-      if (!isThrottle(error) || attempt >= AUTH_RETRY_DELAYS_MS.length) throw error;
-      const wait = AUTH_RETRY_DELAYS_MS[attempt];
-      console.warn(
-        `[fuuud] ${label}: relayer returned 401 AUTH_REJECTED — ` +
-          `retrying in ${wait / 1000}s (${attempt + 1}/${AUTH_RETRY_DELAYS_MS.length}). ` +
-          `If every attempt fails, check the delegate key is registered on this account.`,
-      );
-      await sleep(wait);
+      if (isThrottle(error) && throttleAttempt < AUTH_RETRY_DELAYS_MS.length) {
+        const wait = AUTH_RETRY_DELAYS_MS[throttleAttempt++];
+        console.warn(
+          `[fuuud] ${label}: relayer returned 401 AUTH_REJECTED — ` +
+            `retrying in ${wait / 1000}s (${throttleAttempt}/${AUTH_RETRY_DELAYS_MS.length}). ` +
+            `If every attempt fails, check the delegate key is registered on this account.`,
+        );
+        await sleep(wait);
+        continue;
+      }
+
+      if (isTransient(error) && transientAttempt < TRANSIENT_RETRY_DELAYS_MS.length) {
+        const wait = TRANSIENT_RETRY_DELAYS_MS[transientAttempt++];
+        const detail = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[fuuud] ${label}: ${detail} — retrying in ${wait}ms ` +
+            `(${transientAttempt}/${TRANSIENT_RETRY_DELAYS_MS.length}).`,
+        );
+        await sleep(wait);
+        continue;
+      }
+
+      throw error;
     }
   }
 }
