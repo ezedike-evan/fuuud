@@ -6,7 +6,24 @@ import { extractFacts } from "@/lib/extract.ts";
 import { answersNoRestrictions, CLEARANCE_CLAIM } from "@/lib/clearance.ts";
 import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 
-export const maxDuration = 60;
+/*
+ * 300s, not 60. A turn does a recall, a model call and a write, and the write
+ * alone is allowed INDEX_TIMEOUT_MS (120s) because it embeds, encrypts,
+ * uploads to Walrus and indexes. Against a 60s budget the platform killed the
+ * whole invocation — FUNCTION_INVOCATION_TIMEOUT — which returns nothing at
+ * all, not even the answer that had already been generated.
+ */
+export const maxDuration = 300;
+
+/*
+ * How long the FIRST TOKEN will wait for the write report.
+ *
+ * Reporting what was saved is worth a short pause; it is not worth a blank
+ * screen. If the write has not finished by now the answer streams anyway and
+ * the turn reports `pending` — the memory rail refreshes when the stream ends,
+ * by which point the write has landed, so the truth arrives either way.
+ */
+const WRITE_REPORT_DEADLINE_MS = 10_000;
 
 const BASE_PROMPT = [
   "You are Fuuud, a cautious food and nutrition assistant for users in Nigeria.",
@@ -147,7 +164,12 @@ export async function POST(req: Request) {
    * small call and it overlaps the recall above, so in practice it is close to
    * free; and being told what was saved is worth more than shaving that.
    */
-  const stored = await writing;
+  const stored = await Promise.race([
+    writing,
+    new Promise<StoredReport>((resolve) =>
+      setTimeout(() => resolve({ written: [], skipped: [], failed: null, pending: true }), WRITE_REPORT_DEADLINE_MS),
+    ),
+  ]);
 
   const data = new StreamData();
   data.appendMessageAnnotation({
@@ -170,6 +192,8 @@ export async function POST(req: Request) {
 }
 
 type StoredReport = {
+  /** The write outran the report deadline; the rail refresh will show it. */
+  pending?: boolean;
   written: string[];
   /** Already in the record. Not a failure — the record was already right. */
   skipped: string[];

@@ -14,7 +14,7 @@ const STARTERS = [
 
 /** Shape of the provenance the route attaches to each assistant message. */
 type Recalled = { text: string; distance: number };
-type Stored = { written: string[]; skipped: string[]; failed: string | null };
+type Stored = { written: string[]; skipped: string[]; failed: string | null; pending?: boolean };
 type Annotation = { recalled?: Recalled[]; provider?: string; model?: string; stored?: Stored };
 
 /** `2026-08-27 | allergy | groundnuts - hives` → its three parts. */
@@ -224,6 +224,16 @@ export default function Chat() {
                           title={stored.written.join("\n")}
                         >
                           saved {stored.written.length} fact{stored.written.length === 1 ? "" : "s"}
+                        </span>
+                      ) : stored?.pending ? (
+                        /*
+                          The write outran the report deadline rather than
+                          failing. The answer streams instead of the person
+                          staring at nothing, and the rail refresh at the end of
+                          the turn shows what actually landed.
+                        */
+                        <span className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
+                          still saving…
                         </span>
                       ) : stored?.skipped.length ? (
                         <span
