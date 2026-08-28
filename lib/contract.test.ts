@@ -11,6 +11,7 @@ import {
 import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
 import { resolveModels, keyFor } from "./model-select.ts";
+import { answersNoRestrictions, isRestrictionQuestion, isBareNegative } from "./clearance.ts";
 import { parsePlan, formatPlanClaim, screenPlan, planFromFacts, weekFrom } from "./plan.ts";
 import { ORDER, PROVIDERS } from "./providers.ts";
 
@@ -664,4 +665,53 @@ test("a plan for a cleared person is still screened once they add a condition", 
   const after = { cleared: true, allergies: ["groundnuts - hives"] };
   assert.equal(screenReply("Akamu with groundnut paste", before).safe, true);
   assert.equal(screenReply("Akamu with groundnut paste", after).safe, false);
+});
+
+
+/*
+ * "Do you have any allergies?" -> "none" -> remembered.
+ *
+ * The agent promises you only have to answer once. In a live run the model
+ * failed to classify "none sir" and "i don't think i am allergic to anything",
+ * so the promise broke silently. This recogniser is the floor under that turn.
+ */
+test("the agent's question about restrictions is recognised", () => {
+  for (const q of [
+    "What allergies or medical conditions should I keep in mind for your meals?",
+    "Do you have any allergies I should know about?",
+    "Any health conditions I should consider when suggesting meals?",
+  ]) assert.equal(isRestrictionQuestion(q), true, q);
+});
+
+test("an ordinary reply is not mistaken for the question", () => {
+  assert.equal(isRestrictionQuestion("Here is a light dinner you might enjoy."), false);
+  assert.equal(isRestrictionQuestion("Would you like jollof or ofada tonight?"), false, "a question, but not about restrictions");
+});
+
+test("the plain answers people actually type are recognised", () => {
+  for (const a of [
+    "none", "None.", "no", "Nope!", "nothing", "none sir", "None, sir.",
+    "none that I know of", "not that I know of", "I have none",
+    "i don't have any", "I don't think so", "i don't think i am allergic to anything",
+    "no allergies", "I'm not allergic to anything",
+  ]) assert.equal(isBareNegative(a), true, a);
+});
+
+test("an answer carrying real information is left to the model", () => {
+  for (const a of [
+    "no, but groundnuts upset me",
+    "none, though I am cutting back on sugar",
+    "I'm diabetic",
+    "no pork",
+    "not sure, maybe dairy",
+  ]) assert.equal(isBareNegative(a), false, a);
+});
+
+test("the clearance floor fires only when both halves are unambiguous", () => {
+  const question = "What allergies or medical conditions should I keep in mind?";
+  assert.equal(answersNoRestrictions(question, "none sir"), true);
+  // Right answer, but no question was asked — do not invent a clearance.
+  assert.equal(answersNoRestrictions("Here is a light dinner.", "none"), false);
+  // Right question, but the answer carries a fact the model must read.
+  assert.equal(answersNoRestrictions(question, "no, but I don't eat pork"), false);
 });

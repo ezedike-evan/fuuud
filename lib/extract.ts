@@ -123,6 +123,14 @@ tell which year they mean, leave the date out. Never guess a date.
 ONE TURN CAN CARRY TWO FACTS. "I have no allergies but I don't like veg" is a
 clearance AND a dislike — return both. Do not stop at the first.
 
+A NEGATIVE ANSWER IS A CLEARANCE, INCLUDING A HEDGED ONE. If the assistant
+asked about allergies or conditions and they answer "none", "none sir", "no",
+"not that I know of", "I don't have any" or "I don't think I'm allergic to
+anything", that is a clearance - write it. Do not confuse this with the rule
+about suspected allergies: a hedged YES ("I think I might be allergic") is an
+allergy, and a hedged NO ("I don't think I'm allergic to anything") is a
+clearance. The polarity decides, not the hedging.
+
 RESOLVE SHORT ANSWERS AGAINST THE QUESTION. You may be given the assistant's
 previous question. A reply like "none that I know of", "no", "nope none" or
 "just the groundnut one" only means something next to what was asked. If the

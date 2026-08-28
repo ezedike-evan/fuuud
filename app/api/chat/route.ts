@@ -3,6 +3,7 @@ import { chatModel, describeModel } from "@/lib/model.ts";
 import { getOwnerAddress } from "@/lib/session.ts";
 import { recallSafety, recallPreferences, recallFeedback, resolveConflicts, rememberFact, isOffTheRecord, claimsOfKind, unionFacts } from "@/lib/memory-contract.ts";
 import { extractFacts } from "@/lib/extract.ts";
+import { answersNoRestrictions, CLEARANCE_CLAIM } from "@/lib/clearance.ts";
 import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 
 export const maxDuration = 60;
@@ -171,6 +172,23 @@ async function persist(address: string, userTurn: string, asked: string): Promis
   try {
     if (!userTurn.trim() || isOffTheRecord(userTurn)) return { written, failed: null };
     const facts = await extractFacts(userTurn, asked);
+
+    /*
+     * THE FLOOR UNDER THE MOST IMPORTANT TURN.
+     *
+     * The agent asks about allergies and promises they only have to answer
+     * once. If the answer is a plain "none" and the model fails to classify it
+     * — which is exactly what happened in a live run — that promise is broken
+     * silently and they get asked again next session.
+     *
+     * So when the question and the answer are both unambiguous, the clearance
+     * is written whatever the model returned. The model still handles every
+     * nuanced case; this only guarantees the simple one.
+     */
+    if (answersNoRestrictions(asked, userTurn) && !facts.some((f) => f.kind === "clearance")) {
+      facts.push({ kind: "clearance", text: CLEARANCE_CLAIM });
+    }
+
     for (const fact of facts) {
       const outcome = await rememberFact(address, fact.kind, fact.text, { userTurn });
       if (outcome.status === "written") written.push(`${fact.kind}: ${fact.text}`);
