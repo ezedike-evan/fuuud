@@ -186,7 +186,30 @@ export async function POST(req: Request) {
     model,
     system,
     messages,
-    onFinish: () => void data.close(),
+    /*
+     * THE WRITE MUST OUTLIVE THE ANSWER, AND THE FUNCTION MUST OUTLIVE BOTH.
+     *
+     * A serverless function is frozen the moment its response stream closes.
+     * Closing here without awaiting the write kills it mid-flight: the answer
+     * arrives, the fact is never stored, and the turn reports "still saving…"
+     * forever because that chip was a snapshot taken at the report deadline and
+     * nothing ever updates it.
+     *
+     * So the stream stays open until the write settles. It costs nothing the
+     * reader can see — the answer has already streamed — and it is bounded by
+     * maxDuration above. The client refreshes its memory rail when the stream
+     * ends, which is now guaranteed to be after the fact has landed.
+     */
+    onFinish: async () => {
+      try {
+        await writing;
+      } catch (error) {
+        // Already reported to the caller and logged inside persist(); swallow
+        // it here so a failed write can never leave the stream hanging open.
+        console.error("[fuuud] write did not settle before close:", error);
+      }
+      data.close();
+    },
   });
   return result.toDataStreamResponse({ data });
 }

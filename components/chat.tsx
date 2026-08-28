@@ -232,8 +232,11 @@ export default function Chat() {
                           staring at nothing, and the rail refresh at the end of
                           the turn shows what actually landed.
                         */
-                        <span className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
-                          still saving…
+                        <span
+                          className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted"
+                          title="This chip was taken while the write was still running and does not update. The memory panel on the right refreshes at the end of the turn and shows what actually landed."
+                        >
+                          saving — see the panel
                         </span>
                       ) : stored?.skipped.length ? (
                         <span
