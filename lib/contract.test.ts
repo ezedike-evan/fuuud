@@ -6,7 +6,7 @@ import {
 } from "./facts.ts";
 import {
   screenReply, buildSafetyConstraintsText, findFlags,
-  resolveAllergens, normalizeConditions, allergyStatusKnown,
+  resolveAllergens, normalizeConditions, allergyStatusKnown, resolveObservances,
 } from "./safety.ts";
 import { rankConsultants } from "./consultants.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
@@ -243,7 +243,7 @@ test("a dislike is never a safety rule", () => {
   assert.equal(screenReply("Jollof rice with carrots and peas", profile).safe, true);
   assert.match(
     buildSafetyConstraintsText({ cleared: true, dislikes: ["most vegetables"] }),
-    /never override an allergy or a condition/,
+    /never override an allergy/,
   );
 });
 
@@ -525,7 +525,7 @@ test("likes and goals are preferences, never safety rules", () => {
   const text = buildSafetyConstraintsText({
     cleared: true, likes: ["vegetables"], goals: ["cutting back on sugar"], dislikes: ["okra"],
   });
-  assert.match(text, /never override an allergy or a condition/);
+  assert.match(text, /never override an allergy/);
   // A liked food is never a reason to call something unsafe.
   assert.equal(screenReply("Efo riro with vegetables", { likes: ["vegetables"] }).safe, true);
 });
@@ -539,4 +539,57 @@ test("all three of the reported statements now have a home", () => {
   for (const expected of [/insomnia/, /cutting back on sugar/, /vegetables/]) {
     assert.match(text, expected);
   }
+});
+
+
+/*
+ * An observance is a rule, not a taste. Storing "I don't eat pork" as a dislike
+ * was the only option before, and the agent is told to work AROUND a dislike
+ * where it can — the wrong treatment entirely for a religious rule.
+ */
+test("an observance is screened as strictly as an allergen", () => {
+  const profile = { observances: ["halal"] };
+  assert.equal(screenReply("Jollof rice with bacon", profile).safe, false);
+  assert.deepEqual(screenReply("Jollof rice with bacon", profile).observanceFlags, ["bacon"]);
+  assert.equal(screenReply("Jollof rice with grilled chicken", profile).safe, true);
+});
+
+test("observance synonyms resolve to one rule", () => {
+  assert.deepEqual(resolveObservances(["halal"]), ["no_pork"]);
+  assert.deepEqual(resolveObservances(["no pork"]), ["no_pork"]);
+  assert.deepEqual(resolveObservances(["vegetarian"]), ["vegetarian"]);
+});
+
+test("a vegetarian observance blocks meat and fish", () => {
+  const profile = { observances: ["vegetarian"] };
+  assert.equal(screenReply("Egusi soup with goat meat", profile).safe, false);
+  assert.equal(screenReply("Egusi soup with stockfish", profile).safe, false);
+  assert.equal(screenReply("Moi moi with garden egg salad", profile).safe, true);
+});
+
+test("an observance is stated as a hard rule, never as a preference", () => {
+  const text = buildSafetyConstraintsText({ observances: ["halal"], cleared: true });
+  assert.match(text, /exactly as strictly as an allergy/);
+  assert.match(text, /Never include anything that breaks: No pork/);
+  // It must not be swept into the preferences disclaimer.
+  assert.doesNotMatch(text, /observance.{0,40}are preferences/i);
+});
+
+test("budget and time constraints reach the model", () => {
+  const text = buildSafetyConstraintsText({
+    cleared: true, practical: ["tight budget", "20 minutes on weeknights"],
+  });
+  assert.match(text, /tight budget; 20 minutes on weeknights/);
+  assert.match(text, /cannot afford or cannot cook is not a suggestion/);
+});
+
+test("who they cook for reaches the model", () => {
+  const text = buildSafetyConstraintsText({ cleared: true, household: ["cooks for four"] });
+  assert.match(text, /They cook for: cooks for four/);
+  assert.match(text, /respect anyone else's stated rules/);
+});
+
+test("a preference can never make a meal unsafe, but a rule can", () => {
+  assert.equal(screenReply("Suya", { likes: ["suya"], practical: ["tight budget"] }).safe, true);
+  assert.equal(screenReply("Pork suya", { observances: ["no pork"] }).safe, false);
 });

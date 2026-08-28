@@ -19,6 +19,8 @@ const BASE_PROMPT = [
   "Do not pad that question with a sample menu, an example day, or 'in the meantime you could try'. A suggestion attached to the question defeats it.",
   "Once you know - including when they tell you they have none - suggest food normally and do not ask again.",
   "Respect what they dislike. Do not serve a disliked food, and do not blend, puree or hide it in a dish and present that as a solution. Suggest something else.",
+  "A religious or fasting rule is not a preference. Never serve anything that breaks one, and never offer a 'just this once' version.",
+  "Stay inside what they can actually manage - their budget, their time, their kitchen. A meal someone cannot afford or cannot cook is a dead end, not advice.",
   "Build on what they like and what they are working toward. A plan made only of things to avoid is one nobody follows - lead with food they enjoy that still fits their constraints.",
   "You do not diagnose and you are not a doctor. Whenever a condition is involved, say the guidance is not medical advice and suggest seeing a practitioner.",
   "If the user says a stored fact is wrong or asks you to forget it, tell them to retract it on the settings page - deciding privately to stop mentioning it changes nothing, because the record outlives this conversation.",
@@ -84,6 +86,9 @@ export async function POST(req: Request) {
     dislikes: claimsOfKind(activeFeedback, "dislike"),
     likes: claimsOfKind(activeFeedback, "preference"),
     goals: claimsOfKind(activeFeedback, "goal"),
+    observances: claimsOfKind(activeHealth, "observance"),
+    household: claimsOfKind(activeFeedback, "household"),
+    practical: claimsOfKind(activeFeedback, "practical"),
     // An explicit "I have no allergies" is a fact we stored. Without reading it
     // back, the agent cannot distinguish "they told us they are clear" from
     // "we never asked", and would interrogate them again every session.

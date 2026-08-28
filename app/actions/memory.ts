@@ -5,8 +5,8 @@ import { getOwnerAddress } from "@/lib/session.ts";
 import {
   rememberFact,
   forgetFact as retract,
-  recallHealth,
-  recallFeedback,
+  recallSafety,
+  recallPreferences,
   resolveConflicts,
   type FactKind,
 } from "@/lib/memory-contract.ts";
@@ -26,8 +26,10 @@ export async function saveFact(kind: FactKind, text: string, userTurn?: string) 
 export async function listMemory() {
   const address = await requireAddress();
   const [health, feedback] = await Promise.all([
-    recallHealth(address, "medical conditions and allergies"),
-    recallFeedback(address, "foods rejected and symptoms reported"),
+    // Stable queries: the settings ledger must list EVERYTHING stored, and a
+    // hand-written query only ever surfaces the kinds it happens to name.
+    recallSafety(address),
+    recallPreferences(address),
   ]);
   return {
     health: resolveConflicts(health),

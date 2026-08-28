@@ -45,6 +45,33 @@ const ALLERGY_SYNONYMS: Record<string, string> = {
   sesame: "sesame", beniseed: "sesame",
 };
 
+/*
+ * Observances get the same deterministic treatment as allergens, not the
+ * softer preference treatment. A religious rule the model quietly forgets is
+ * as much a failure as a forgotten allergy, and prompt text alone has already
+ * proved insufficient once today.
+ */
+const OBSERVANCE_TOKENS: Record<string, string[]> = {
+  no_pork: ["pork", "bacon", "ham", "gammon", "lard", "pancetta", "chorizo"],
+  no_alcohol: ["alcohol", "beer", "wine", "spirits", "rum", "brandy", "palm wine", "burukutu"],
+  vegetarian: ["beef", "goat", "chicken", "turkey", "pork", "bacon", "ham", "meat", "suya", "shaki", "ponmo", "offal", "liver", "gizzard", "fish", "catfish", "titus", "stockfish", "prawn", "shrimp", "crayfish"],
+  vegan: ["beef", "goat", "chicken", "turkey", "pork", "bacon", "ham", "meat", "suya", "shaki", "ponmo", "offal", "liver", "gizzard", "fish", "catfish", "titus", "stockfish", "prawn", "shrimp", "crayfish", "milk", "cheese", "butter", "yoghurt", "yogurt", "egg", "honey"],
+};
+
+const OBSERVANCE_LABELS: Record<string, string> = {
+  no_pork: "No pork",
+  no_alcohol: "No alcohol",
+  vegetarian: "Vegetarian",
+  vegan: "Vegan",
+};
+
+const OBSERVANCE_SYNONYMS: Record<string, string> = {
+  "no pork": "no_pork", pork: "no_pork", halal: "no_pork", kosher: "no_pork",
+  "no alcohol": "no_alcohol", alcohol: "no_alcohol", teetotal: "no_alcohol",
+  vegetarian: "vegetarian", veggie: "vegetarian",
+  vegan: "vegan", "plant based": "vegan", "plant-based": "vegan",
+};
+
 const CONDITION_BLOCK_TOKENS: Record<string, string[]> = {
   diabetes: ["sugar", "sugary", "sweetened", "soft drink", "soda", "candy", "cake", "honey", "malt drink", "ice cream", "syrup", "glucose", "condensed milk"],
   ulcer: ["pepper soup", "spicy", "chilli", "chili", "hot pepper", "alcohol", "carbonated", "soda", "coffee", "citrus"],
@@ -110,6 +137,12 @@ export type HealthProfile = {
   likes?: string[];
   /** Dietary aims they are working toward — "cutting back on sugar". */
   goals?: string[];
+  /** Religious or fasting rules. Enforced like allergens, not like tastes. */
+  observances?: string[];
+  /** Who they cook for — changes portions, may add a second person's rules. */
+  household?: string[];
+  /** Budget, time, equipment, skill. Why good advice goes unfollowed. */
+  practical?: string[];
   /** They explicitly told us they have no allergies / no conditions. */
   cleared?: boolean;
 };
@@ -185,6 +218,15 @@ export function findFlags(text: string, tokens: string[]): string[] {
   return [...found];
 }
 
+/** Stored observances ("halal", "no pork") to canonical keys. */
+export function resolveObservances(list: string[]): string[] {
+  const keys = new Set<string>();
+  for (const raw of list) {
+    for (const key of matchTerms(raw.toLowerCase().trim(), OBSERVANCE_SYNONYMS)) keys.add(key);
+  }
+  return [...keys];
+}
+
 export function resolveAllergens(allergyList: string[]): string[] {
   const keys = new Set<string>();
   for (const raw of allergyList) {
@@ -200,9 +242,11 @@ export function resolveAllergens(allergyList: string[]): string[] {
 export function buildBlocklist(profile: HealthProfile = {}) {
   const conditions = normalizeConditions(profile.conditions);
   const allergenKeys = resolveAllergens(normalizeList(profile.allergies));
+  const observanceKeys = resolveObservances(normalizeList(profile.observances));
   const allergenTokens = allergenKeys.flatMap((k) => ALLERGEN_TOKENS[k] ?? []);
   const conditionTokens = conditions.flatMap((c) => CONDITION_BLOCK_TOKENS[c] ?? []);
-  return { conditions, allergenKeys, allergenTokens, conditionTokens };
+  const observanceTokens = observanceKeys.flatMap((k) => OBSERVANCE_TOKENS[k] ?? []);
+  return { conditions, allergenKeys, allergenTokens, conditionTokens, observanceKeys, observanceTokens };
 }
 
 /** Hard constraints folded into the system prompt — defence in depth, before screening. */
@@ -231,6 +275,12 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
       `- They have told you they are allergic to: ${statedAllergies.join("; ")}. Never serve any of these, or any dish containing them, in any amount.`,
     );
   }
+  const statedObservances = normalizeList(profile.observances);
+  if (statedObservances.length) {
+    lines.push(
+      `- They keep these rules: ${statedObservances.join("; ")}. Treat them exactly as strictly as an allergy. Never serve anything that breaks one, and never offer a "just this once" version.`,
+    );
+  }
   if (statedConditions.length) {
     lines.push(
       `- They have told you they have: ${statedConditions.join("; ")}. Every meal must be appropriate for all of them, and say the guidance is not medical advice.`,
@@ -250,6 +300,11 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
    * screenReply() after the fact, so the model is the only thing standing
    * between the person and that ingredient. It should know that.
    */
+  const { observanceKeys } = buildBlocklist(profile);
+  if (observanceKeys.length) {
+    lines.push(`- Never include anything that breaks: ${observanceKeys.map((k) => OBSERVANCE_LABELS[k] ?? k).join(", ")}.`);
+  }
+
   const unscreened = statedAllergies.filter((a) => resolveAllergens([a]).length === 0);
   if (unscreened.length) {
     lines.push(
@@ -295,8 +350,17 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
       `- They dislike: ${dislikes.join("; ")}. Work around it rather than serving it and hoping. Do not hide a disliked food inside a dish and present it as a solution.`,
     );
   }
-  if (dislikes.length || likes.length || goals.length) {
-    lines.push("- Likes, dislikes and goals are preferences, not safety rules: they never override an allergy or a condition, and they are never a reason to call a meal unsafe.");
+  const household = normalizeList(profile.household);
+  const practical = normalizeList(profile.practical);
+  if (household.length) {
+    lines.push(`- They cook for: ${household.join("; ")}. Size the meal accordingly, and respect anyone else's stated rules.`);
+  }
+  if (practical.length) {
+    lines.push(`- What they can actually manage: ${practical.join("; ")}. A meal they cannot afford or cannot cook is not a suggestion, it is a dead end. Stay inside this.`);
+  }
+
+  if (dislikes.length || likes.length || goals.length || household.length || practical.length) {
+    lines.push("- Likes, dislikes, goals, household and budget are preferences and limits, not safety rules: they never override an allergy, a condition or an observance, and they are never a reason to call a meal unsafe.");
   }
 
   return lines.join("\n");
@@ -307,12 +371,14 @@ export function buildSafetyConstraintsText(profile: HealthProfile) {
  * the caller can regenerate rather than ship an unsafe suggestion.
  */
 export function screenReply(text: string, profile: HealthProfile) {
-  const { allergenTokens, conditionTokens } = buildBlocklist(profile);
+  const { allergenTokens, conditionTokens, observanceTokens } = buildBlocklist(profile);
   const allergenFlags = findFlags(text, allergenTokens);
   const conditionFlags = findFlags(text, conditionTokens);
+  const observanceFlags = findFlags(text, observanceTokens);
   return {
-    safe: allergenFlags.length === 0 && conditionFlags.length === 0,
+    safe: allergenFlags.length === 0 && conditionFlags.length === 0 && observanceFlags.length === 0,
     allergenFlags,
     conditionFlags,
+    observanceFlags,
   };
 }

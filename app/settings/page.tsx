@@ -27,6 +27,9 @@ const KIND_COLOR: Record<string, string> = {
   symptom: "var(--c-warn)",
   dislike: "var(--c-ink-muted)",
   preference: "var(--c-accent)",
+  observance: "var(--c-danger)",
+  household: "var(--c-ink-muted)",
+  practical: "var(--c-ink-muted)",
   goal: "var(--c-accent)",
 };
 

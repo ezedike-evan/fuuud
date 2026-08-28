@@ -1,6 +1,6 @@
 export type RailFact = {
   date: string;
-  kind: "condition" | "allergy" | "clearance" | "rejection" | "symptom" | "dislike" | "preference" | "goal" | "fact";
+  kind: "condition" | "allergy" | "clearance" | "rejection" | "symptom" | "dislike" | "preference" | "goal" | "observance" | "household" | "practical" | "fact";
   claim: string;
   superseded?: boolean;
 };
@@ -18,6 +18,9 @@ const DOT: Record<string, string> = {
   symptom: "var(--c-warn)",
   dislike: "var(--c-ink-muted)",
   preference: "var(--c-accent)",
+  observance: "var(--c-danger)",
+  household: "var(--c-ink-muted)",
+  practical: "var(--c-ink-muted)",
   goal: "var(--c-accent)",
   fact: "var(--c-ink-muted)",
 };

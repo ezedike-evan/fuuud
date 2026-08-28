@@ -67,11 +67,16 @@ const KIND_NAMESPACE: Record<FactKind, (a: string) => string> = {
   // allergies"), so it belongs with the conditions it negates — not in the
   // preferences namespace where a recall for allergies would never see it.
   clearance: healthNs,
+  // An observance is a hard constraint, so it lives with the facts that are
+  // retrieved by the safety query on every single turn.
+  observance: healthNs,
   rejection: feedbackNs,
   symptom: feedbackNs,
   dislike: feedbackNs,
   preference: feedbackNs,
   goal: feedbackNs,
+  household: feedbackNs,
+  practical: feedbackNs,
   plan: planNs,
 };
 
@@ -102,9 +107,10 @@ export const recallFeedback = (address: string, query: string) => recallFrom(fee
  * whatever was asked.
  */
 export const SAFETY_QUERY =
-  "medical conditions, allergies, intolerances and foods to avoid";
+  "medical conditions, allergies, intolerances, religious or fasting rules, and foods to avoid";
 export const PREFERENCE_QUERY =
-  "foods liked and disliked, dietary goals, meals rejected and symptoms after eating";
+  "foods liked and disliked, dietary goals, budget, cooking time and equipment, " +
+  "who they cook for, meals rejected and symptoms after eating";
 
 /** Conditions, allergies and clearances — retrieved regardless of the question. */
 export const recallSafety = (address: string) => recallFrom(healthNs(address), SAFETY_QUERY);

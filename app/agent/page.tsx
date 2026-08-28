@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getOwnerAddress } from "@/lib/session.ts";
-import { recallHealth, recallFeedback, resolveConflicts } from "@/lib/memory-contract.ts";
+import { recallSafety, recallPreferences, resolveConflicts } from "@/lib/memory-contract.ts";
 import AppShell from "@/components/app-shell";
 import Chat from "@/components/chat";
 import MemoryRail, { type RailFact } from "@/components/memory-rail";
@@ -23,10 +23,18 @@ export default async function AgentPage() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
 
-  // One recall per page load, both namespaces in parallel — never per component.
+  /*
+   * One recall per page load, both namespaces in parallel — never per component.
+   *
+   * The STABLE queries, the same ones the chat route uses. The rail previously
+   * asked for "rejected meals and symptoms", which named three of the eleven
+   * fact kinds — so a dislike, a like, a goal, a budget or a household fact sat
+   * in the record and never appeared here, because recall is a similarity
+   * search and nothing in the query resembled them.
+   */
   const [health, feedback] = await Promise.all([
-    recallHealth(address, "conditions, allergies and foods to avoid").catch(() => []),
-    recallFeedback(address, "rejected meals and symptoms").catch(() => []),
+    recallSafety(address).catch(() => []),
+    recallPreferences(address).catch(() => []),
   ]);
 
   const h = resolveConflicts(health);

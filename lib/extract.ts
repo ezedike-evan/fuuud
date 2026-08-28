@@ -16,7 +16,7 @@ import type { FactKind } from "./memory-contract.ts";
 const FactSchema = z.object({
   facts: z.array(
     z.object({
-      kind: z.enum(["condition", "allergy", "rejection", "symptom", "dislike", "preference", "goal", "clearance"]),
+      kind: z.enum(["condition", "allergy", "rejection", "symptom", "dislike", "preference", "goal", "observance", "household", "practical", "clearance"]),
       text: z.string().describe("The fact in plain words, third person, no date."),
     }),
   ),
@@ -42,11 +42,30 @@ WRITE a fact only when the USER asserts one of these:
              "vegetables", "pepper soup", "fish". This is how meals get planned
              around what someone actually enjoys, so do not skip it as small
              talk — a stated like is as durable as a stated dislike.
+- observance: a religious or fasting rule they keep ("I don't eat pork", "halal
+             only", "I'm vegetarian", "I fast during Ramadan", "no alcohol").
+             Write the rule: "no pork", "halal", "vegetarian", "fasts during
+             Ramadan". This is NOT a dislike - it is a rule they do not intend
+             to break, and getting it wrong is a real failure, not merely an
+             unappealing suggestion. If they give a religious reason, keep the
+             rule and leave the reasoning out.
+- household: who they cook or eat for ("I cook for four", "just me", "my wife
+             is vegetarian", "I have two small children"). Write it plainly:
+             "cooks for four", "wife is vegetarian".
+- practical: what they can actually manage - budget, time, equipment, skill
+             ("money is tight this month", "no oven", "twenty minutes on
+             weeknights", "I can barely cook"). Write the constraint: "tight
+             budget", "no oven", "20 minutes on weeknights".
 - goal:      a dietary aim they are working toward ("I'm cutting back on
              sugar", "trying to eat more protein", "eating less red meat").
              Write it as the aim: "cutting back on sugar", "more protein".
              Not a condition - they are not claiming a diagnosis. Not a dislike
              - they may well like the thing they are cutting.
+
+AN OBSERVANCE IS NOT A DISLIKE. "I don't eat pork" is an observance when it is
+a rule they keep, and a dislike only when it is plainly about taste ("pork is
+too fatty for me"). When someone states a rule without a reason, treat it as an
+observance - the stricter reading is the safe one.
 
 LIKES AND GOALS ARE FACTS, NOT CHATTER. "I like more veggies" and "I'm cutting
 back on sugar" are exactly the kind of thing that gets dismissed as small talk

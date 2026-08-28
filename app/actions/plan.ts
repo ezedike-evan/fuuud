@@ -20,7 +20,7 @@ export type PlanWeek = {
   meals: ScreenedMeal[];
   /** True until they have told us their allergies — we refuse to plan blind. */
   blocked: boolean;
-  profile: { conditions: string[]; allergies: string[]; dislikes: string[]; likes: string[]; goals: string[] };
+  profile: { conditions: string[]; allergies: string[]; dislikes: string[]; likes: string[]; goals: string[]; observances: string[]; practical: string[] };
 };
 
 async function requireOwner() {
@@ -43,6 +43,9 @@ async function currentProfile(address: string): Promise<HealthProfile> {
     dislikes: claimsOfKind(feedback, "dislike"),
     likes: claimsOfKind(feedback, "preference"),
     goals: claimsOfKind(feedback, "goal"),
+    observances: claimsOfKind(health, "observance"),
+    household: claimsOfKind(feedback, "household"),
+    practical: claimsOfKind(feedback, "practical"),
     cleared: claimsOfKind(health, "clearance").length > 0,
   };
 }
@@ -70,6 +73,8 @@ export async function getPlanWeek(): Promise<PlanWeek> {
       dislikes: profile.dislikes ?? [],
       likes: profile.likes ?? [],
       goals: profile.goals ?? [],
+      observances: profile.observances ?? [],
+      practical: profile.practical ?? [],
     },
   };
 }
