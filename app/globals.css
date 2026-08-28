@@ -227,4 +227,47 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .chip:hover { border-color: var(--c-ink-faint); color: var(--c-ink); }
+
+  /*
+   * A scroll region that does not announce itself.
+   *
+   * The default bar is a wide, high-contrast slab against a black canvas — the
+   * loudest object on the page, sitting right next to the quietest. This keeps
+   * the region scrollable but hides the track entirely and only fades a thumb
+   * in while the pointer is over it, so a long conversation reads as one
+   * continuous surface.
+   *
+   * Deliberately NOT `scrollbar-width: none`: something must still appear on
+   * hover, or there is no visual cue that the area scrolls at all.
+   */
+  .scroll-quiet {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.25s ease;
+    scroll-behavior: smooth;
+    /* Stops a scroll at the end of the list from chaining to the page. */
+    overscroll-behavior: contain;
+  }
+  .scroll-quiet:hover,
+  .scroll-quiet:focus-within {
+    scrollbar-color: var(--c-line) transparent;
+  }
+
+  /* WebKit and Blink ignore scrollbar-color, so they get the same thing again. */
+  .scroll-quiet::-webkit-scrollbar { width: 7px; height: 7px; }
+  .scroll-quiet::-webkit-scrollbar-track { background: transparent; }
+  .scroll-quiet::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+    transition: background 0.25s ease;
+  }
+  .scroll-quiet:hover::-webkit-scrollbar-thumb,
+  .scroll-quiet:focus-within::-webkit-scrollbar-thumb {
+    background: var(--c-line);
+  }
+  .scroll-quiet::-webkit-scrollbar-thumb:hover { background: var(--c-ink-faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-quiet { scroll-behavior: auto; }
+  }
 }

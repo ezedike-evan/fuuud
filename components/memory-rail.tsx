@@ -45,7 +45,7 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
           Nothing yet. Tell it about a condition, an allergy, something you like or a budget, and it will appear here.
         </p>
       ) : (
-        <ul className="-mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
+        <ul className="scroll-quiet -mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
           {facts.map((f, i) => (
             <li
               key={`${f.date}-${f.claim}-${i}`}

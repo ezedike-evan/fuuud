@@ -280,7 +280,13 @@ export async function rememberFact(
     );
   }
 
-  if (closest && sameFact(closest.text, text)) {
+  /*
+   * Same claim AND same kind is a duplicate. Same claim with a DIFFERENT kind
+   * is a contradiction — "I like vegetables" then "I don't like vegetables" —
+   * and falls through to the supersede path below, where the newer fact is
+   * stored naming the one it replaces.
+   */
+  if (closest && sameFact(closest.text, text, kind)) {
     return { status: "skipped", reason: "duplicate", existing: closest.text };
   }
 

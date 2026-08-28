@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { openKeysPanel } from "./api-keys-menu";
@@ -57,6 +57,29 @@ export default function Chat() {
   // stored line, distance and all, is one click away.
   const [openOn, setOpenOn] = useState<string | null>(null);
 
+  /*
+   * Follow a streaming reply.
+   *
+   * The message list is its own scroll region now, so unlike a page that grows
+   * downward it does not follow new content on its own — a long answer would
+   * stream in below the fold with no indication anything was happening.
+   *
+   * It only follows while the reader is already at the bottom. Scroll up to
+   * re-read something and the view stays where you put it, which is the whole
+   * reason this is a ref and not state: it must not re-render on every scroll
+   * event mid-stream.
+   */
+  const listRef = useRef<HTMLOListElement>(null);
+  const followStream = useRef(true);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !followStream.current) return;
+    // `behavior: auto` on purpose — the container sets scroll-behavior: smooth
+    // for ordinary scrolling, but animating every token of a stream stutters.
+    list.scrollTo({ top: list.scrollHeight, behavior: "auto" });
+  }, [messages, status]);
+
   return (
     /*
       The chat column is exactly the height of its grid cell. Only the message
@@ -65,7 +88,7 @@ export default function Chat() {
     */
     <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-6">
       {messages.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-16">
+        <div className="scroll-quiet flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-16">
           <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-[-0.03em]">
             What should you eat?
           </h1>
@@ -87,7 +110,15 @@ export default function Chat() {
           </div>
         </div>
       ) : (
-        <ol className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto py-10">
+        <ol
+          ref={listRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            // A little slack, so a stray pixel does not count as "scrolled away".
+            followStream.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          }}
+          className="scroll-quiet flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto py-10"
+        >
           {messages.map((m) => {
             if (m.role === "user") {
               return (
