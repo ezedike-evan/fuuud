@@ -229,6 +229,40 @@
   .chip:hover { border-color: var(--c-ink-faint); color: var(--c-ink); }
 
   /*
+   * A write to Walrus is not instant: embed, encrypt, upload, certify onchain,
+   * index - 25 to 35 seconds in practice. This is the "still working" surface:
+   * a slow sweep over the placeholder, with a pulsing dot for the same reason.
+   * Transform/opacity only; both stop for reduced motion.
+   */
+  .saving {
+    position: relative;
+    overflow: hidden;
+  }
+  .saving::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, var(--c-accent-wash) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: km-sweep 1.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .saving-dot {
+    animation: km-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes km-sweep {
+    to { transform: translateX(100%); }
+  }
+  @keyframes km-pulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .saving::after { animation: none; }
+    .saving-dot { animation: none; opacity: 1; }
+  }
+
+  /*
    * A scroll region that does not announce itself.
    *
    * The default bar is a wide, high-contrast slab against a black canvas — the

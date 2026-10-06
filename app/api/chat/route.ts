@@ -4,6 +4,7 @@ import { getOwnerAddress } from "@/lib/session.ts";
 import { recallSafety, recallPreferences, recallFeedback, resolveConflicts, rememberFact, isOffTheRecord, claimsOfKind, unionFacts } from "@/lib/memory-contract.ts";
 import { extractFacts } from "@/lib/extract.ts";
 import { answersNoRestrictions, CLEARANCE_CLAIM } from "@/lib/clearance.ts";
+import { buildPlanWeek } from "@/lib/plan-week.ts";
 import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 
 /*
@@ -89,6 +90,9 @@ export async function POST(req: Request) {
     health = safety;
     feedback = unionFacts(standing, topical);
   } catch (error) {
+    if (error instanceof Error && error.name === "MemwalSetupRequired") {
+      return new Response("Create your memory account first at /setup.", { status: 428 });
+    }
     console.error("recall failed", error);
     return new Response(
       "I can't reach your memory right now, so I won't guess at your conditions. Try again in a moment.",
@@ -202,11 +206,22 @@ export async function POST(req: Request) {
      */
     onFinish: async () => {
       try {
-        await writing;
+        // The first annotation was a snapshot taken at the report deadline. Send
+        // the settled result too, so a late write ends as "saved N facts" (or a
+        // real error) instead of staying "saving".
+        data.appendMessageAnnotation({ stored: await writing });
       } catch (error) {
         // Already reported to the caller and logged inside persist(); swallow
         // it here so a failed write can never leave the stream hanging open.
         console.error("[fuuud] write did not settle before close:", error);
+      }
+      // A newly stored fact can make a scheduled meal unsafe. Re-reading the
+      // plan re-screens it and cancels any reminder that no longer passes.
+      try {
+        const report = await writing;
+        if (report.written.length) await buildPlanWeek(address);
+      } catch {
+        // Best effort: the next calendar load runs the same sweep.
       }
       data.close();
     },

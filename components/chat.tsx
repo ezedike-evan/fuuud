@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { openKeysPanel } from "./api-keys-menu";
 import { NO_KEY_CODE } from "@/lib/providers";
+import { announceSaving } from "@/lib/save-events";
+import { useElapsed, walrusStage } from "@/lib/use-elapsed";
 
 const STARTERS = [
   "I'm diabetic and groundnuts give me hives",
@@ -52,6 +54,21 @@ export default function Chat() {
   const { messages, input, handleInputChange, handleSubmit, status, append, error, reload } =
     useChat({ api: "/api/chat", onFinish: () => router.refresh() });
   const busy = status === "streaming" || status === "submitted";
+
+  /*
+   * A write is in flight when the turn is still open AFTER the report deadline
+   * passed without the write finishing (stored.pending). The route keeps the
+   * stream open until the write settles, so `busy` going false is the end of it.
+   * The chip and the rail's placeholder card both key off this one flag.
+   */
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const lastStored = annotationOf(lastAssistant?.annotations)?.stored;
+  const writing = busy && Boolean(lastStored?.pending);
+  const writeSeconds = useElapsed(writing);
+  useEffect(() => {
+    announceSaving(writing);
+    return () => announceSaving(false);
+  }, [writing]);
 
   // Which message's provenance is expanded. Chips are a summary; the full
   // stored line, distance and all, is one click away.
@@ -228,16 +245,27 @@ export default function Chat() {
                       ) : stored?.pending ? (
                         /*
                           The write outran the report deadline rather than
-                          failing. The answer streams instead of the person
-                          staring at nothing, and the rail refresh at the end of
-                          the turn shows what actually landed.
+                          failing. While the turn is open it is still running,
+                          and says so with a live count; once the stream closes
+                          the write has settled and the rail shows what landed.
                         */
-                        <span
-                          className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted"
-                          title="This chip was taken while the write was still running and does not update. The memory panel on the right refreshes at the end of the turn and shows what actually landed."
-                        >
-                          saving — see the panel
-                        </span>
+                        m.id === lastAssistant?.id && busy ? (
+                          <span
+                            role="status"
+                            aria-live="polite"
+                            className="saving inline-flex items-center gap-2 rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted"
+                          >
+                            <span aria-hidden className="saving-dot size-[5px] rounded-full bg-accent" />
+                            <span className="tabular-nums">{walrusStage(writeSeconds)}… {writeSeconds}s</span>
+                          </span>
+                        ) : (
+                          <span
+                            className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted"
+                            title="The write finished after this answer. The memory panel on the right shows what landed."
+                          >
+                            saved — see the panel
+                          </span>
+                        )
                       ) : stored?.skipped.length ? (
                         <span
                           className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted"

@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { requireAccount } from "@/lib/require-account.ts";
 import { recallSafety, recallPreferences, resolveConflicts } from "@/lib/memory-contract.ts";
 import AppShell from "@/components/app-shell";
 import Chat from "@/components/chat";
 import MemoryRail, { type RailFact } from "@/components/memory-rail";
 
 export const dynamic = "force-dynamic";
+
+// A retraction is a Walrus write (25-35 s, up to 120 s). Server actions on this
+// page inherit this budget, so the platform does not kill it mid-write.
+export const maxDuration = 300;
 
 function toRail(
   facts: { text: string; blobId?: string }[],
@@ -28,6 +33,7 @@ function toRail(
 export default async function AgentPage() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
+  requireAccount();
 
   /*
    * One recall per page load, both namespaces in parallel — never per component.

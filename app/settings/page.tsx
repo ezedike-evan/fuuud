@@ -1,11 +1,18 @@
 import { redirect } from "next/navigation";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { requireAccount } from "@/lib/require-account.ts";
 import { listMemory } from "@/app/actions/memory";
+import Connections from "@/components/connections";
+import RevokeButton from "@/components/revoke-button";
 import AppShell from "@/components/app-shell";
 import ForgetButton from "@/components/forget-button";
 import { blobExplorerUrl } from "@/lib/walrus-links";
 
 export const dynamic = "force-dynamic";
+
+// A retraction is a Walrus write (25-35 s, up to 120 s). Server actions on this
+// page inherit this budget, so the platform does not kill it mid-write.
+export const maxDuration = 300;
 
 type Row = { date: string; kind: string; claim: string; distance: number; blobId?: string };
 
@@ -38,6 +45,7 @@ const KIND_COLOR: Record<string, string> = {
 export default async function SettingsPage() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
+  requireAccount();
 
   const empty = { active: [], superseded: [], retracted: [] };
   const { health, feedback } = await listMemory().catch(() => ({
@@ -146,6 +154,8 @@ export default async function SettingsPage() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Connections />
+
           <section className="rounded-[10px] border border-warn-line px-5 py-[18px]" style={{ background: "color-mix(in oklab, var(--c-warn) 5%, transparent)" }}>
             <h2 className="mb-2.5 flex items-center gap-2.5 text-sm font-medium">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="text-warn">
@@ -176,9 +186,7 @@ export default async function SettingsPage() {
               saved stay readable to that key until they are re-encrypted. If you need those
               closed off too, retract them above.
             </p>
-            <button type="button" className="rounded-[8px] border border-danger-line px-[13px] py-[7px] text-[12.5px] text-danger transition-colors hover:bg-danger/10">
-              Revoke delegate key
-            </button>
+            <RevokeButton address={address} />
           </section>
         </div>
       </div>

@@ -1,0 +1,26 @@
+# Pings the reminder endpoint on a schedule. Host-agnostic: works wherever the app
+# is deployed. Set repo secrets APP_URL (https://your-origin, no trailing slash)
+# and CRON_SECRET (same value as the app's CRON_SECRET).
+#
+# GitHub's minimum is every 5 minutes and runs can start several minutes late
+# under load. Reminders are valid for a 2-hour window after their time, so a late
+# ping still delivers.
+name: reminders
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send due reminders
+        run: |
+          curl --fail --silent --show-error --max-time 60 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/reminders"

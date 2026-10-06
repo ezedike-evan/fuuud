@@ -58,6 +58,53 @@ person with no conditions. `restore()` rebuilds those rows. Every empty recall
 triggers one warm-up pass per namespace, then retries, so the failure that
 matters most cannot happen quietly.
 
+## Your own account, per person
+
+Each person creates **their own** MemWalAccount at `/setup`: their Enoki wallet
+signs `createAccount` and `addDelegateKey` in the browser, and the server only
+ever receives the delegate key (sealed in an httpOnly cookie). Namespaces
+organise a record but do not isolate it - any delegate key on an account
+decrypts every namespace on it - so the account, not a string prefix, is the
+boundary between two people. Revoke removes the delegate onchain from Settings.
+
+`MEMWAL_SHARED_ACCOUNT=1` restores the old single-server-key mode for a demo; it
+makes "you own your memory" untrue and is off by default.
+
+Relayer allowance: 30 points per minute per delegate key (remember 5, recall 1,
+analyze 10). `lib/relayer-budget.ts` spends it deliberately, and a week of
+planned meals is written with one bulk call, not 21 single writes.
+
+## Reminders, Telegram and calendar
+
+| Channel | How | Needs |
+|---|---|---|
+| Telegram | Bot API directly; `/start <id>` deep link, webhook or polling | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` |
+| Browser push | Web Push (VAPID) + `public/sw.js` | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
+| Calendar | `.ics` download + per-meal Google Calendar links, no OAuth | nothing |
+| Scheduler | GitHub Actions -> `GET /api/cron/reminders` | `CRON_SECRET`, Upstash Redis |
+
+This is the one non-Walrus store: a chat id, a push subscription and the names
+and times of upcoming meals, kept only once a channel is connected and deleted on
+disconnect. A cron job has no cookie or delegate key, so it **cannot re-screen at
+send time**. (The scheduler is `.github/workflows/reminders.yml`, which works on any host.) The screen runs when a reminder is scheduled and again on every plan
+read and every chat turn that stores a fact, so a new allergy cancels the
+matching reminders before the next cron tick - at worst one interval behind.
+
+**Store.** Upstash Redis REST (`UPSTASH_REDIS_REST_URL` / `_TOKEN`). **Scheduler.**
+The GitHub workflow pings every 5 minutes; set repo secrets `APP_URL` and
+`CRON_SECRET`. Runs can start a few minutes late, which is fine: a reminder stays
+valid for 2 hours after its time.
+
+Register the Telegram webhook once per deployment:
+
+```bash
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d url=https://<origin>/api/telegram/webhook -d secret_token=$TELEGRAM_WEBHOOK_SECRET
+```
+
+Locally, skip the webhook: Settings polls `getUpdates` while you press Start.
+iOS only delivers web push once the site is added to the home screen.
+
 ## Layout
 
 ```

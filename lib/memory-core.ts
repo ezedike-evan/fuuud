@@ -153,7 +153,7 @@ function warmOnce(namespace: string, memwal: ReturnType<typeof getMemWal>) {
   const existing = warmed.get(namespace);
   if (existing) return existing;
 
-  const run = withRelayerRetry(`restore ${namespace}`, () => memwal.restore(namespace, RESTORE_LIMIT))
+  const run = withRelayerRetry(`restore ${namespace}`, () => memwal.restore(namespace, RESTORE_LIMIT), "analyze")
     .then((r) => {
       console.warn(
         `[fuuud] warmed ${namespace}: restored=${r.restored} ` +
@@ -304,6 +304,7 @@ export async function rememberFact(
       timeoutMs: INDEX_TIMEOUT_MS,
       idempotencyKey: idempotencyKeyFor(namespace, stored),
     }),
+    "remember",
   );
 
   return { status: "written", namespace, text: stored, supersedes };
@@ -378,6 +379,7 @@ export async function forgetFact(address: string, text: string): Promise<ForgetO
       timeoutMs: INDEX_TIMEOUT_MS,
       idempotencyKey: idempotencyKeyFor(hit.namespace, tombstone),
     }),
+    "remember",
   );
 
   return {
@@ -386,4 +388,78 @@ export async function forgetFact(address: string, text: string): Promise<ForgetO
     tombstone,
     target: hit.nearest.text,
   };
+}
+
+/** The relayer's bulk endpoint takes at most 20 items per request. */
+const BULK_LIMIT = 20;
+
+export type BatchOutcome = { written: string[]; skipped: string[] };
+
+/**
+ * Write many PLAN claims in a handful of relayer calls.
+ *
+ * A week of meals is up to 21 facts. Through rememberFact each one costs a
+ * dedupe recall plus a write - roughly 6 points - so one "generate week" press
+ * spent ~126 points against a 30-per-minute allowance and tripped the
+ * relayer's 401 AUTH_REJECTED throttle for minutes.
+ *
+ * Here the namespace is read ONCE for duplicates, then everything new goes out
+ * through rememberBulkAndWait in chunks of 20. Plans only: a plan is something
+ * the agent proposed, so skipping the near-duplicate/supersede reconciliation
+ * is safe - planFromFacts already keeps the newest write per (date, slot).
+ * Clinical facts must keep going through rememberFact.
+ *
+ * rememberBulk sends NO idempotency key (Walrus Memory demo, gotcha #6), so
+ * the exact-duplicate filter below is the only thing standing between a retry
+ * and a second copy of every meal.
+ */
+export async function rememberPlanBatch(address: string, claims: string[]): Promise<BatchOutcome> {
+  const namespace = planNs(address);
+  const memwal = getMemWal(namespace);
+
+  const existing = await recallPlanLines(namespace);
+  // A retracted meal is not "already there": the person removed it, and a
+  // fresh plan that proposes it again must be allowed to write it back.
+  const retracted = new Set(
+    existing.filter((t) => factKind(t) === TOMBSTONE).map((t) => factBody(t).replace(/ - retracted$/, "")),
+  );
+  const have = new Set(
+    existing.filter((t) => factKind(t) === "plan").map((t) => factBody(t)).filter((b) => !retracted.has(b)),
+  );
+
+  const fresh: string[] = [];
+  const skipped: string[] = [];
+  for (const claim of claims) {
+    const key = claim.trim().toLowerCase();
+    if (have.has(key)) skipped.push(claim);
+    else {
+      have.add(key);
+      fresh.push(claim);
+    }
+  }
+
+  const written: string[] = [];
+  for (let i = 0; i < fresh.length; i += BULK_LIMIT) {
+    const chunk = fresh.slice(i, i + BULK_LIMIT);
+    const lines = chunk.map((c) => formatFact("plan", c));
+    // One bulk request books remember-cost per item against the allowance.
+    await withRelayerRetry(
+      `bulk-write ${namespace}`,
+      () => memwal.rememberBulkAndWait(lines.map((text) => ({ text })), { timeoutMs: INDEX_TIMEOUT_MS * 1.5 }),
+      "remember",
+    );
+    written.push(...chunk);
+  }
+  return { written, skipped };
+}
+
+async function recallPlanLines(namespace: string): Promise<string[]> {
+  const result = await withRelayerRetry(`plan-read ${namespace}`, () =>
+    getMemWal(namespace).recall({
+      query: "meals scheduled for breakfast, lunch and dinner",
+      namespace,
+      limit: 50,
+    }),
+  );
+  return result.results.map((r) => r.text);
 }

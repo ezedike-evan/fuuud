@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { generatePlanWeek, removeMeal, declareNoRestrictions, type PlanWeek } from "@/app/actions/plan";
 import { SLOTS, dayLabel } from "@/lib/plan";
+import { googleCalendarUrl } from "@/lib/ics";
 
 /**
  * The week, screened against the record as it stands right now.
@@ -141,6 +142,15 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
         </p>
       )}
 
+      {week.remindersCancelled.length > 0 && (
+        <p role="status" className="mt-6 rounded-[10px] border border-warn-line px-4 py-3.5 text-[13px] leading-relaxed text-ink-muted">
+          <strong className="font-medium text-warn">
+            {week.remindersCancelled.length} {week.remindersCancelled.length === 1 ? "reminder was" : "reminders were"} cancelled.
+          </strong>{" "}
+          {week.remindersCancelled.join("; ")} no longer passes your record, so nothing will be sent for it.
+        </p>
+      )}
+
       {error && (
         <p role="alert" className="mt-6 rounded-[10px] border border-danger-line px-4 py-3.5 text-[13px] text-danger">
           {error}
@@ -185,6 +195,17 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
                             <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-danger">
                               {meal.flags.slice(0, 2).join(", ") || "clashes"}
                             </span>
+                          )}
+                          {meal.safe && (
+                            <a
+                              href={googleCalendarUrl(meal)}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              aria-label={`Add ${slot} on ${date} to Google Calendar`}
+                              className="text-[11px] text-ink-faint opacity-0 transition-opacity hover:text-accent focus:opacity-100 group-hover:opacity-100"
+                            >
+                              + Calendar
+                            </a>
                           )}
                           <button
                             type="button"

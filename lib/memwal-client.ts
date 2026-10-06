@@ -1,4 +1,6 @@
 import { MemWal, MemWalMock } from "@mysten-incubation/memwal";
+import { acquire, POINTS } from "./relayer-budget.ts";
+import { currentScope, MemwalSetupRequired } from "./memwal-scope.ts";
 
 /**
  * Plain factory with no `server-only` guard, so both the Next app and the MCP
@@ -94,12 +96,22 @@ const TRANSIENT_RETRY_DELAYS_MS = [500, 2_000];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+export type RelayerOp = keyof typeof POINTS;
+
+/**
+ * `op` books the call against the relayer's 30 points/minute allowance BEFORE
+ * it is sent (see ./relayer-budget). Every attempt is booked, retries included,
+ * because the relayer counts them. Defaults to a recall - the cheapest, and the
+ * most common call.
+ */
+export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>, op: RelayerOp = "recall"): Promise<T> {
   let throttleAttempt = 0;
   let transientAttempt = 0;
 
   for (;;) {
     try {
+      const bucket = delegateKey();
+      if (bucket) await acquire(bucket, POINTS[op]);
       return await fn();
     } catch (error) {
       if (isThrottle(error) && throttleAttempt < AUTH_RETRY_DELAYS_MS.length) {
@@ -129,13 +141,50 @@ export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>): 
   }
 }
 
-const key = () => process.env.MEMWAL_PRIVATE_KEY?.trim();
-const accountId = () => process.env.MEMWAL_ACCOUNT_ID?.trim();
+const envKey = () => process.env.MEMWAL_PRIVATE_KEY?.trim();
+const envAccountId = () => process.env.MEMWAL_ACCOUNT_ID?.trim();
+
+/**
+ * Whether a request without its own credentials may fall back to the
+ * environment's single shared account. OFF by default: that is the model where
+ * one server-held key reads everyone's record, which is the opposite of the
+ * product claim. Scripts, the MCP server and tests have no request scope and
+ * always use the environment.
+ */
+const sharedAllowed = () => process.env.MEMWAL_SHARED_ACCOUNT === "1";
+
+type Resolved = { key: string; accountId: string } | "mock";
+
+function resolve(): Resolved {
+  const scope = currentScope();
+  if (scope) {
+    if (scope.creds) return { key: scope.creds.delegateKey, accountId: scope.creds.accountId };
+    if (sharedAllowed() && envKey() && envAccountId()) return { key: envKey()!, accountId: envAccountId()! };
+    // Local development with DEV_FAKE_ADDRESS has no wallet to create an account
+    // with, so it works on the offline mock. Refused in production by
+    // getOwnerAddress, so this can never serve a real person.
+    if (process.env.DEV_FAKE_ADDRESS && process.env.NODE_ENV !== "production") return "mock";
+    // Signed in, no account. Never fall through to the mock here: it would
+    // accept the person's allergy and forget it when the process restarts.
+    throw new MemwalSetupRequired();
+  }
+  return envKey() && envAccountId() ? { key: envKey()!, accountId: envAccountId()! } : "mock";
+}
+
+/** The key the relayer meters this request against, if any. */
+const delegateKey = () => {
+  try {
+    const r = resolve();
+    return r === "mock" ? undefined : r.key;
+  } catch {
+    return undefined;
+  }
+};
 
 export type MemWalMode = "live" | "mock";
 
 export function memwalMode(): MemWalMode {
-  return key() && accountId() ? "live" : "mock";
+  return resolve() === "mock" ? "mock" : "live";
 }
 
 /**
@@ -187,17 +236,22 @@ function mock() {
 const live = new Map<string, MemWal>();
 
 export function createMemWal(namespace: string) {
-  if (memwalMode() === "mock") return mock();
+  const who = resolve();
+  if (who === "mock") return mock();
 
-  const existing = live.get(namespace);
+  // Cached per ACCOUNT as well as namespace: two people's clients must never
+  // share a SEAL session, and the namespace alone no longer identifies a person
+  // once the delegate key is theirs.
+  const id = `${who.accountId}:${namespace}`;
+  const existing = live.get(id);
   if (existing) return existing;
 
   const client = MemWal.create({
-    key: key()!,
-    accountId: accountId()!,
+    key: who.key,
+    accountId: who.accountId,
     serverUrl: process.env.MEMWAL_SERVER_URL ?? "https://relayer-staging.memory.walrus.xyz",
     namespace,
   });
-  live.set(namespace, client);
+  live.set(id, client);
   return client;
 }

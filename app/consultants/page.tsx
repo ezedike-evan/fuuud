@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { requireAccount } from "@/lib/require-account.ts";
 import { recallHealth, resolveConflicts, claimsOfKind } from "@/lib/memory-contract.ts";
 import { rankConsultants } from "@/lib/consultants.ts";
 import AppShell from "@/components/app-shell";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ConsultantsPage() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
+  requireAccount();
 
   const facts = resolveConflicts(await recallHealth(address, "medical conditions").catch(() => [])).active;
   const ranked = rankConsultants(claimsOfKind(facts, "condition"));

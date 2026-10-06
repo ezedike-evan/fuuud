@@ -7,21 +7,16 @@ import { chatModel } from "@/lib/model.ts";
 import { getOwnerAddress } from "@/lib/session.ts";
 import {
   recallSafety, recallPreferences, recallPlan, resolveConflicts,
-  claimsOfKind, rememberFact, forgetFact,
+  claimsOfKind, rememberFact, forgetFact, rememberPlanBatch,
 } from "@/lib/memory-contract.ts";
 import { buildSafetyConstraintsText, allergyStatusKnown, type HealthProfile } from "@/lib/safety.ts";
+import { buildPlanWeek, currentProfile, type PlanWeek } from "@/lib/plan-week.ts";
 import {
   SLOTS, weekFrom, planFromFacts, screenPlan, formatPlanClaim,
   type PlannedMeal, type ScreenedMeal, type Slot,
 } from "@/lib/plan.ts";
 
-export type PlanWeek = {
-  dates: string[];
-  meals: ScreenedMeal[];
-  /** True until they have told us their allergies — we refuse to plan blind. */
-  blocked: boolean;
-  profile: { conditions: string[]; allergies: string[]; dislikes: string[]; likes: string[]; goals: string[]; observances: string[]; practical: string[] };
-};
+export type { PlanWeek } from "@/lib/plan-week.ts";
 
 async function requireOwner() {
   const address = await getOwnerAddress();
@@ -29,54 +24,8 @@ async function requireOwner() {
   return address;
 }
 
-/** The record as it stands right now — the yardstick every meal is held to. */
-async function currentProfile(address: string): Promise<HealthProfile> {
-  const [safety, prefs] = await Promise.all([
-    recallSafety(address).catch(() => []),
-    recallPreferences(address).catch(() => []),
-  ]);
-  const health = resolveConflicts(safety).active;
-  const feedback = resolveConflicts(prefs).active;
-  return {
-    conditions: claimsOfKind(health, "condition"),
-    allergies: claimsOfKind(health, "allergy"),
-    dislikes: claimsOfKind(feedback, "dislike"),
-    likes: claimsOfKind(feedback, "preference"),
-    goals: claimsOfKind(feedback, "goal"),
-    observances: claimsOfKind(health, "observance"),
-    household: claimsOfKind(feedback, "household"),
-    practical: claimsOfKind(feedback, "practical"),
-    cleared: claimsOfKind(health, "clearance").length > 0,
-  };
-}
-
 export async function getPlanWeek(): Promise<PlanWeek> {
-  const address = await requireOwner();
-  const [profile, planFacts] = await Promise.all([
-    currentProfile(address),
-    recallPlan(address).catch(() => []),
-  ]);
-
-  const dates = weekFrom();
-  const stored = planFromFacts(resolveConflicts(planFacts).active);
-  // Re-screened on every read, against today's record. A meal planned last week
-  // is judged by what the agent knows now.
-  const meals = screenPlan(stored.filter((m) => dates.includes(m.date)), profile);
-
-  return {
-    dates,
-    meals,
-    blocked: !allergyStatusKnown(profile),
-    profile: {
-      conditions: profile.conditions ?? [],
-      allergies: profile.allergies ?? [],
-      dislikes: profile.dislikes ?? [],
-      likes: profile.likes ?? [],
-      goals: profile.goals ?? [],
-      observances: profile.observances ?? [],
-      practical: profile.practical ?? [],
-    },
-  };
+  return buildPlanWeek(await requireOwner());
 }
 
 const MealSchema = z.object({
@@ -139,11 +88,10 @@ export async function generatePlanWeek(justCleared = false): Promise<PlanWeek> {
   // The gate. Unsafe proposals are discarded, never stored and never shown.
   const safe = screenPlan(proposed, planningProfile).filter((m) => m.safe);
 
-  for (const meal of safe) {
-    await rememberFact(address, "plan", formatPlanClaim(meal)).catch((error) => {
-      console.error("[fuuud] could not store planned meal:", error);
-    });
-  }
+  // One batched write, not one write per meal - see rememberPlanBatch.
+  await rememberPlanBatch(address, safe.map(formatPlanClaim)).catch((error) => {
+    console.error("[fuuud] could not store planned meals:", error);
+  });
 
   revalidatePath("/calendar");
   return getPlanWeek();

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { requireAccount } from "@/lib/require-account.ts";
 import { getPlanWeek } from "@/app/actions/plan";
 import AppShell from "@/components/app-shell";
 import MealCalendar from "@/components/meal-calendar";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function CalendarPage() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
+  requireAccount();
 
   const week = await getPlanWeek();
 

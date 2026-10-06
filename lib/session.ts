@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { readSession, SESSION_COOKIE } from "./auth.ts";
+import { bindMemwal } from "./memwal-cookie.ts";
 
 /**
  * Identity boundary. Returns a Sui address only when the browser presented a
@@ -10,6 +11,14 @@ import { readSession, SESSION_COOKIE } from "./auth.ts";
  * DEV_FAKE_ADDRESS bypasses all of that and is refused in production.
  */
 export async function getOwnerAddress(): Promise<string | null> {
+  const address = await resolveAddress();
+  // Every entry point that reaches the memory layer resolves the address first,
+  // so this is where the person's own MemWal account gets bound to the request.
+  if (address) await bindMemwal(address);
+  return address;
+}
+
+async function resolveAddress(): Promise<string | null> {
   const dev = process.env.DEV_FAKE_ADDRESS;
   if (dev) {
     if (process.env.NODE_ENV === "production") {

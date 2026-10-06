@@ -1,4 +1,6 @@
 import { blobExplorerUrl } from "@/lib/walrus-links";
+import ForgetButton from "./forget-button";
+import SavingRow from "./saving-row";
 
 export type RailFact = {
   date: string;
@@ -44,12 +46,13 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
         <span className="font-mono text-[11px] text-ink-faint">{active.length}</span>
       </div>
 
-      {facts.length === 0 ? (
-        <p className="shrink-0 rounded-[10px] border border-dashed border-line px-3.5 py-5 text-center text-[12.5px] leading-relaxed text-ink-faint">
-          Nothing yet. Tell it about a condition, an allergy, something you like or a budget, and it will appear here.
-        </p>
-      ) : (
-        <ul className="scroll-quiet -mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
+      <ul className="scroll-quiet -mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
+        <SavingRow />
+        {facts.length === 0 && (
+          <li className="rounded-[10px] border border-dashed border-line px-3.5 py-5 text-center text-[12.5px] leading-relaxed text-ink-faint">
+            Nothing yet. Tell it about a condition, an allergy, something you like or a budget, and it will appear here.
+          </li>
+        )}
           {facts.map((f, i) => (
             <li
               key={`${f.date}-${f.claim}-${i}`}
@@ -73,6 +76,7 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
               </p>
               <div className="mt-1.5 flex items-baseline justify-between gap-2">
                 <span className="font-mono text-[10.5px] text-ink-faint">{f.date}</span>
+                {!f.superseded && <ForgetButton claim={f.claim} compact />}
                 {/*
                   The entry, on Walrus, for anyone to check. The ciphertext is
                   public and unreadable without the keys — which is exactly what
@@ -93,8 +97,7 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
               </div>
             </li>
           ))}
-        </ul>
-      )}
+      </ul>
 
       {/* The list above owns the free space now, so no spacer is needed and
           this note is pinned to the bottom of the rail. */}
