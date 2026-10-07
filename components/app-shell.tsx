@@ -8,7 +8,7 @@ import ApiKeysMenu from "./api-keys-menu";
 const NAV = [
   { href: "/agent", label: "Agent" },
   { href: "/calendar", label: "Calendar" },
-  { href: "/settings", label: "Memory" },
+  { href: "/settings", label: "Settings" },
 ];
 
 /**

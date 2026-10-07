@@ -62,8 +62,8 @@ export default function ApiKeysMenu() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Model keys and settings"
-        title="Model keys"
+        aria-label="AI model and API keys"
+        title="AI model and API keys"
         className="relative grid size-[33px] place-items-center rounded-full border border-line text-ink-muted transition-colors hover:border-ink-faint hover:text-ink"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
