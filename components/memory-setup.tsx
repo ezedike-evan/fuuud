@@ -56,15 +56,22 @@ export default function MemorySetup({ address }: { address: string }) {
       const { accounts } = await wallet.features["standard:connect"].connect();
       const account = accounts.find((a) => a.address.toLowerCase() === address.toLowerCase());
       if (!account) throw new Error("Your wallet is on a different address than this session. Sign out and back in.");
-      const signer = enokiSigner(wallet, account, CHAIN);
-
       const cfgRes = await fetch("/api/memwal/config");
       if (!cfgRes.ok) throw new Error(await cfgRes.text());
-      const cfg = (await cfgRes.json()) as { packageId: string; registryId: string; grpcUrl: string | null };
+      const cfg = (await cfgRes.json()) as { packageId: string; registryId: string; network: "testnet" | "mainnet"; grpcUrl: string | null };
+      // The wallet, the relayer and the Enoki key must all be on ONE network. A
+      // testnet-registered wallet signing against the mainnet relayer fails deep
+      // inside the sponsor call with an error that names none of this.
+      if (cfg.network !== NETWORK) {
+        throw new Error(
+          `This app is built for ${NETWORK} but its relayer is on ${cfg.network}. Set NEXT_PUBLIC_SUI_NETWORK=${cfg.network} (and rebuild), or point MEMWAL_SERVER_URL at the ${NETWORK} relayer.`,
+        );
+      }
       const suiClient = new SuiGrpcClient({
         network: NETWORK,
         baseUrl: cfg.grpcUrl ?? `https://fullnode.${NETWORK}.sui.io:443`,
       });
+      const signer = enokiSigner(wallet, account, CHAIN, suiClient);
       const base = { packageId: cfg.packageId, registryId: cfg.registryId, walletSigner: signer, suiNetwork: NETWORK, suiClient } as const;
 
       let accountId = existing.trim();
@@ -100,9 +107,7 @@ export default function MemorySetup({ address }: { address: string }) {
       window.location.href = "/agent";
     } catch (e) {
       setStep("idle");
-      const msg = e instanceof Error ? e.message : "Setup failed";
-      // The most common first-run failure: a brand-new zkLogin address holds no SUI.
-      setError(/gas|balance|insufficient|coin/i.test(msg) ? `${msg} — fund ${address} with testnet SUI at https://faucet.sui.io and try again.` : msg);
+      setError(e instanceof Error ? e.message : "Setup failed");
     }
   }
 
@@ -115,6 +120,15 @@ export default function MemorySetup({ address }: { address: string }) {
         Your wallet creates a Walrus Memory account that only you own, then registers this app as a
         delegate you can revoke. No one else&apos;s key can read it.
       </p>
+
+      <div className="mt-5 rounded-lg border border-line-soft px-3.5 py-3">
+        <p className="eyebrow">Your Sui address</p>
+        <p className="mt-1.5 break-all font-mono text-[12px] leading-relaxed text-ink">{address}</p>
+        <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">
+          Setup is two onchain transactions signed by you. Gas is sponsored, so this address does not
+          need any SUI.
+        </p>
+      </div>
 
       {needsExisting && (
         <input

@@ -44,14 +44,19 @@ export default function RevokeButton({ address }: { address: string }) {
       const account = accounts.find((a) => a.address.toLowerCase() === address.toLowerCase());
       if (!account) throw new Error("Your wallet is on a different address than this session.");
 
+      if (cfg.network !== NETWORK) {
+        throw new Error(`This app is built for ${NETWORK} but its relayer is on ${cfg.network}. Set NEXT_PUBLIC_SUI_NETWORK=${cfg.network} and rebuild.`);
+      }
+      const suiClient = new SuiGrpcClient({ network: NETWORK, baseUrl: cfg.grpcUrl ?? `https://fullnode.${NETWORK}.sui.io:443` });
+
       const { digest } = await removeDelegateKey({
         packageId: cfg.packageId,
         registryId: cfg.registryId,
         accountId: held.accountId,
         publicKey: held.delegatePublicKey,
-        walletSigner: enokiSigner(wallet, account, `sui:${NETWORK}`),
+        walletSigner: enokiSigner(wallet, account, `sui:${NETWORK}`, suiClient),
         suiNetwork: NETWORK,
-        suiClient: new SuiGrpcClient({ network: NETWORK, baseUrl: cfg.grpcUrl ?? `https://fullnode.${NETWORK}.sui.io:443` }),
+        suiClient,
       });
       setTx(digest);
       await fetch("/api/memwal/revoke", { method: "POST" });

@@ -67,6 +67,12 @@ organise a record but do not isolate it - any delegate key on an account
 decrypts every namespace on it - so the account, not a string prefix, is the
 boundary between two people. Revoke removes the delegate onchain from Settings.
 
+Gas is sponsored: every account transaction goes build kind -> relayer `/sponsor`
+(Enoki) -> wallet signs -> `/sponsor/execute`, proxied through our own origin
+because the relayer's CORS does not allow other origins. Nobody needs SUI. The
+relayer, `NEXT_PUBLIC_SUI_NETWORK` and the Enoki key must be on the SAME network
+(testnet or mainnet); `/setup` refuses with a clear message when they are not.
+
 `MEMWAL_SHARED_ACCOUNT=1` restores the old single-server-key mode for a demo; it
 makes "you own your memory" untrue and is off by default.
 
