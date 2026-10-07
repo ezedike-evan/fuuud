@@ -10,7 +10,7 @@ import {
   claimsOfKind, rememberFact, forgetFact, rememberPlanBatch,
 } from "@/lib/memory-contract.ts";
 import { buildSafetyConstraintsText, allergyStatusKnown, type HealthProfile } from "@/lib/safety.ts";
-import { buildPlanWeek, currentProfile, type PlanWeek } from "@/lib/plan-week.ts";
+import { buildPlanWeek, currentProfile, unavailableWeek, type PlanWeek } from "@/lib/plan-week.ts";
 import {
   SLOTS, weekFrom, planFromFacts, screenPlan, formatPlanClaim,
   type PlannedMeal, type ScreenedMeal, type Slot,
@@ -54,7 +54,13 @@ export async function generatePlanWeek(justCleared = false): Promise<PlanWeek> {
   // The person's own memory account must be in scope for everything below (see inScope).
   return inScope(async () => {
     const address = await requireOwner();
-    const profile = await currentProfile(address);
+    let profile: Awaited<ReturnType<typeof currentProfile>>;
+    try {
+      profile = await currentProfile(address);
+    } catch (error) {
+      // Never plan (or ask "any allergies?") on a record we could not read.
+      return unavailableWeek(error);
+    }
 
     /*
      * Refuse to plan for someone whose allergies nobody has asked about. Same
@@ -139,7 +145,12 @@ export async function removeMeal(date: string, slot: string): Promise<PlanWeek> 
   // The person's own memory account must be in scope for everything below (see inScope).
   return inScope(async () => {
     const address = await requireOwner();
-    const stored = planFromFacts(resolveConflicts(await recallPlan(address).catch(() => [])).active);
+    let stored: ReturnType<typeof planFromFacts>;
+    try {
+      stored = planFromFacts(resolveConflicts(await recallPlan(address)).active);
+    } catch (error) {
+      return unavailableWeek(error);
+    }
     const target = stored.find((m) => m.date === date && m.slot === slot);
     if (target) await forgetFact(address, formatPlanClaim(target));
     revalidatePath("/calendar");

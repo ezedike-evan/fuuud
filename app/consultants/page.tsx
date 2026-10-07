@@ -4,6 +4,8 @@ import { requireAccount } from "@/lib/require-account.ts";
 import { recallHealth, resolveConflicts, claimsOfKind } from "@/lib/memory-contract.ts";
 import { rankConsultants } from "@/lib/consultants.ts";
 import AppShell from "@/components/app-shell";
+import MemoryUnavailable from "@/components/memory-unavailable";
+import { describeMemoryFailure, type MemoryFailure } from "@/lib/memory-errors.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,14 @@ async function ConsultantsPageInner() {
   if (!address) redirect("/signin");
   requireAccount();
 
-  const facts = resolveConflicts(await recallHealth(address, "medical conditions").catch(() => [])).active;
+  let facts: ReturnType<typeof resolveConflicts>["active"] = [];
+  let unavailable: MemoryFailure | undefined;
+  try {
+    facts = resolveConflicts(await recallHealth(address, "medical conditions")).active;
+  } catch (error) {
+    console.error("[fuuud] consultants: record unreadable:", error instanceof Error ? error.message : error);
+    unavailable = describeMemoryFailure(error);
+  }
   const ranked = rankConsultants(claimsOfKind(facts, "condition"));
   const anyMatch = ranked.some((c) => c.score > 0);
 
@@ -20,8 +29,11 @@ async function ConsultantsPageInner() {
     <AppShell address={address} active="/consultants">
       <div className="mx-auto w-full max-w-4xl px-14 py-10">
         <h1 className="font-display font-medium text-[40px] leading-[1.05] tracking-[-0.03em]">Practitioners</h1>
+        {unavailable && <div className="mt-6"><MemoryUnavailable failure={unavailable} /></div>}
         <p className="mt-2.5 max-w-[60ch] text-[14.5px] leading-relaxed text-ink-muted">
-          {anyMatch
+          {unavailable
+            ? "Not ranked: your record could not be read, so this list says nothing about your conditions."
+            : anyMatch
             ? "Ranked from what your agent remembers — not from a search box you filled in. Revoke its access and this list goes flat."
             : "Unranked. Your agent has no stored conditions yet, or its access to them was revoked."}
         </p>

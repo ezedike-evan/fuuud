@@ -27,7 +27,7 @@ const LABEL: Record<Step, string> = {
  * on it. Nothing here is signed by the server. The delegate key is the only
  * secret that leaves the browser, and it is the one you can revoke.
  */
-export default function MemorySetup({ address }: { address: string }) {
+export default function MemorySetup({ address, refused = false }: { address: string; refused?: boolean }) {
   const [wallet, setWallet] = useState<EnokiWallet | null>(null);
   const [step, setStep] = useState<Step>("idle");
   // Checked on load: a misconfigured network/registry fails deep inside a wallet transaction with
@@ -154,6 +154,13 @@ export default function MemorySetup({ address }: { address: string }) {
       >
         {LABEL[step]}
       </button>
+
+      {refused && (
+        <p role="status" className="mt-4 rounded-lg border border-warn-line px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
+          The key this app was using for your account was refused, usually because it was removed. Your memory is untouched on Walrus.
+          This registers a new key on your existing account, and nothing is created twice.
+        </p>
+      )}
 
       {misconfigured && (
         <p role="alert" className="mt-4 rounded-lg border border-danger-line px-3 py-2.5 text-[12.5px] leading-relaxed text-danger">

@@ -8,20 +8,23 @@ import MemorySetup from "@/components/memory-setup";
 
 export const dynamic = "force-dynamic";
 
-async function SetupPageInner() {
+async function SetupPageInner({ searchParams }: { searchParams: Promise<{ refused?: string }> }) {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
-  if (currentScope()?.creds) redirect((await hasPending()) ? "/oauth/consent" : "/agent");
+  // `?refused=1` means the key we hold was refused: do NOT bounce to /agent (it would fail the same way);
+  // let the person register a new key on their existing account instead.
+  const refused = (await searchParams).refused === "1";
+  if (currentScope()?.creds && !refused) redirect((await hasPending()) ? "/oauth/consent" : "/agent");
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-10 px-6">
       <Link href="/"><Wordmark size={28} /></Link>
-      <MemorySetup address={address} />
+      <MemorySetup address={address} refused={refused} />
     </div>
   );
 }
 
 // Wrapped so the person's memory account is in scope for everything above (see inScope).
-export default function SetupPage() {
-  return inScope(SetupPageInner);
+export default function SetupPage(props: { searchParams: Promise<{ refused?: string }> }) {
+  return inScope(() => SetupPageInner(props));
 }

@@ -1,5 +1,7 @@
 import { blobExplorerUrl } from "@/lib/walrus-links";
 import ForgetButton from "./forget-button";
+import MemoryUnavailable from "./memory-unavailable";
+import type { MemoryFailure } from "@/lib/memory-errors";
 import SavingRow from "./saving-row";
 
 export type RailFact = {
@@ -31,7 +33,7 @@ const DOT: Record<string, string> = {
   fact: "var(--c-ink-muted)",
 };
 
-export default function MemoryRail({ facts }: { facts: RailFact[] }) {
+export default function MemoryRail({ facts, unavailable }: { facts: RailFact[]; unavailable?: MemoryFailure }) {
   const active = facts.filter((f) => !f.superseded);
 
   return (
@@ -48,7 +50,10 @@ export default function MemoryRail({ facts }: { facts: RailFact[] }) {
 
       <ul className="scroll-quiet -mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
         <SavingRow />
-        {facts.length === 0 && (
+        {unavailable && (
+          <li><MemoryUnavailable failure={unavailable} compact /></li>
+        )}
+        {!unavailable && facts.length === 0 && (
           <li className="rounded-[10px] border border-dashed border-line px-3.5 py-5 text-center text-[12.5px] leading-relaxed text-ink-faint">
             Nothing yet. Tell it about a condition, an allergy, something you like or a budget, and it will appear here.
           </li>

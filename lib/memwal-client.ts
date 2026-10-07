@@ -1,6 +1,7 @@
 import { MemWal, MemWalMock } from "@mysten-incubation/memwal";
 import { acquire, POINTS } from "./relayer-budget.ts";
 import { currentScope, MemwalSetupRequired } from "./memwal-scope.ts";
+import { KeyRefused } from "./memory-errors.ts";
 
 /**
  * Plain factory with no `server-only` guard, so both the Next app and the MCP
@@ -104,16 +105,38 @@ export type RelayerOp = keyof typeof POINTS;
  * because the relayer counts them. Defaults to a recall - the cheapest, and the
  * most common call.
  */
+/**
+ * A refused key is remembered briefly, per key. The relayer takes ~20 s to say no, so
+ * without this every page load, and every tool call, would wait that long again.
+ */
+const REFUSED_TTL_MS = 60_000;
+const refused = new Map<string, number>();
+const recentlyRefused = (key: string) => (refused.get(key) ?? 0) > Date.now();
+/** Test seam. */
+export const forgetRefusals = () => refused.clear();
+
 export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>, op: RelayerOp = "recall"): Promise<T> {
   let throttleAttempt = 0;
   let transientAttempt = 0;
+  // A PERSON's own key (a request with credentials in scope) fails fast. The 401 ladder below
+  // exists for a single shared key hammered by scripts, where "throttled for minutes" was real;
+  // for a person it only turns a revoked key into a two-and-a-half minute wait followed by an
+  // empty-looking record. The client-side budget already keeps us under the relayer's allowance.
+  const perPerson = Boolean(currentScope()?.creds);
 
   for (;;) {
     try {
       const bucket = delegateKey();
+      if (perPerson && bucket && recentlyRefused(bucket)) throw new KeyRefused();
       if (bucket) await acquire(bucket, POINTS[op], { maxWaitMs: currentScope()?.maxWaitMs });
       return await fn();
     } catch (error) {
+      if (perPerson && isThrottle(error)) {
+        const bucket = delegateKey();
+        if (bucket) refused.set(bucket, Date.now() + REFUSED_TTL_MS);
+        throw new KeyRefused();
+      }
+
       if (isThrottle(error) && throttleAttempt < AUTH_RETRY_DELAYS_MS.length) {
         const wait = AUTH_RETRY_DELAYS_MS[throttleAttempt++];
         console.warn(

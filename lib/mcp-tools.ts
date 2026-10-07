@@ -18,6 +18,7 @@ import {
   claimsOfKind, isOffTheRecord, writeStatus, type RecalledFact,
 } from "./memory-core.ts";
 import { dropReceipts, listReceipts, recordPending } from "./pending-writes.ts";
+import { KeyRefused } from "./memory-errors.ts";
 import { screenReply, buildSafetyConstraintsText } from "./safety.ts";
 import { healthNs, feedbackNs } from "./namespaces.ts";
 
@@ -51,7 +52,12 @@ const cap = (s: string) =>
 const text = (s: string) => ({ content: [{ type: "text" as const, text: cap(s) }] });
 const fail = (s: string) => ({ content: [{ type: "text" as const, text: cap(s) }], isError: true });
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const message = (e: unknown) =>
+  e instanceof KeyRefused
+    ? "this connection's key was refused (the person may have disconnected it or revoked it). Ask them to reconnect this app"
+    : e instanceof Error
+      ? e.message
+      : String(e);
 
 /** Stored lines look like `2026-08-24 | allergy | groundnuts — hives`. */
 function render(facts: { text: string; distance: number }[]) {

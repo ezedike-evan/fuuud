@@ -6,6 +6,8 @@ import { useChat } from "@ai-sdk/react";
 import { openKeysPanel } from "./api-keys-menu";
 import { NO_KEY_CODE } from "@/lib/providers";
 import { announceSaving } from "@/lib/save-events";
+import MemoryUnavailable from "./memory-unavailable";
+import type { MemoryFailure } from "@/lib/memory-errors";
 import { useElapsed, walrusStage } from "@/lib/use-elapsed";
 
 const STARTERS = [
@@ -42,7 +44,7 @@ function annotationOf(annotations: unknown[] | undefined): Annotation | null {
   return Object.keys(merged).length ? merged : null;
 }
 
-export default function Chat() {
+export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
   const router = useRouter();
   /*
    * The memory rail is rendered by the /agent server component at page load.
@@ -348,13 +350,18 @@ export default function Chat() {
       {/* No spacer and no `sticky`: the message list above owns the free space
           and does the scrolling, so the composer simply sits at the bottom of
           a fixed column. */}
+      {unavailable && (
+        <div className="mb-3 shrink-0"><MemoryUnavailable failure={unavailable} compact /></div>
+      )}
+
       <form onSubmit={handleSubmit} className="shrink-0 bg-canvas pb-6 pt-3">
         <div className="card px-3 pb-3 pt-3.5">
           <input
             value={input}
             onChange={handleInputChange}
             aria-label="Message"
-            placeholder="Tell it about a condition, or just ask what to eat…"
+            disabled={Boolean(unavailable)}
+            placeholder={unavailable ? "Your memory has to be readable before it can answer safely." : "Tell it about a condition, or just ask what to eat…"}
             className="w-full bg-transparent px-2 pb-3 text-[15px] text-ink placeholder:text-ink-faint focus:outline-none"
           />
           <div className="flex items-center justify-between gap-3">
@@ -368,7 +375,7 @@ export default function Chat() {
             </span>
             <button
               type="submit"
-              disabled={busy || !input.trim()}
+              disabled={busy || !input.trim() || Boolean(unavailable)}
               aria-label="Send"
               className="cta grid size-9 shrink-0 place-items-center rounded-full disabled:opacity-25"
             >

@@ -10,6 +10,8 @@ async function getHandler() {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
   const week = await buildPlanWeek(address);
+  // Never export a calendar built from a record we could not read.
+  if (week.unavailable) return new Response(week.unavailable.message, { status: 503 });
   const safe = week.meals.filter((m) => m.safe);
   if (!safe.length) return new Response("Nothing safe to export yet.", { status: 404 });
   return new Response(buildIcs(safe), {

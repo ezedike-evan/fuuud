@@ -5,6 +5,7 @@ import {
 import { allergyStatusKnown, type HealthProfile } from "./safety.ts";
 import { weekFrom, planFromFacts, screenPlan, type ScreenedMeal } from "./plan.ts";
 import { syncReminders } from "./reminders-sync.ts";
+import { describeMemoryFailure, type MemoryFailure } from "./memory-errors.ts";
 
 export type PlanWeek = {
   dates: string[];
@@ -15,16 +16,22 @@ export type PlanWeek = {
   remindersCancelled: string[];
   /** True until they have told us their allergies — we refuse to plan blind. */
   blocked: boolean;
+  /**
+   * Set when the record could not be READ. Every other field is then empty, and that
+   * emptiness means "unknown", never "no allergies": the UI must show this instead of the
+   * plan, and nothing may be planned, exported or cancelled on the strength of it.
+   */
+  unavailable?: MemoryFailure;
   profile: { conditions: string[]; allergies: string[]; dislikes: string[]; likes: string[]; goals: string[]; observances: string[]; practical: string[] };
 };
 
 
 /** The record as it stands right now — the yardstick every meal is held to. */
 export async function currentProfile(address: string): Promise<HealthProfile> {
-  const [safety, prefs] = await Promise.all([
-    recallSafety(address).catch(() => []),
-    recallPreferences(address).catch(() => []),
-  ]);
+  // NO .catch(() => []) here. A failed read swallowed into an empty profile made the planner
+  // ask "do you have allergies?" of someone who had told it, and for the calendar an
+  // unreadable record is indistinguishable from a clear one. Let it throw; callers say so.
+  const [safety, prefs] = await Promise.all([recallSafety(address), recallPreferences(address)]);
   const health = resolveConflicts(safety).active;
   const feedback = resolveConflicts(prefs).active;
   return {
@@ -40,11 +47,30 @@ export async function currentProfile(address: string): Promise<HealthProfile> {
   };
 }
 
+/** A week that says "I could not read your record" instead of pretending the record is empty. */
+export function unavailableWeek(error: unknown): PlanWeek {
+  return {
+    dates: weekFrom(),
+    meals: [],
+    remindersScheduled: 0,
+    remindersCancelled: [],
+    blocked: false,
+    unavailable: describeMemoryFailure(error),
+    profile: { conditions: [], allergies: [], dislikes: [], likes: [], goals: [], observances: [], practical: [] },
+  };
+}
+
 export async function buildPlanWeek(address: string): Promise<PlanWeek> {
-  const [profile, planFacts] = await Promise.all([
-    currentProfile(address),
-    recallPlan(address).catch(() => []),
-  ]);
+  let profile: HealthProfile;
+  let planFacts: Awaited<ReturnType<typeof recallPlan>>;
+  try {
+    [profile, planFacts] = await Promise.all([currentProfile(address), recallPlan(address)]);
+  } catch (error) {
+    console.error("[fuuud] plan week: record unreadable:", error instanceof Error ? error.message : error);
+    // Returned BEFORE the reminder sync below: syncing an empty plan would cancel every
+    // queued reminder because the record happened to be unreadable.
+    return unavailableWeek(error);
+  }
 
   const dates = weekFrom();
   const stored = planFromFacts(resolveConflicts(planFacts).active);

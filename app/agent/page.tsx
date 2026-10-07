@@ -3,6 +3,7 @@ import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { recallSafety, recallPreferences, resolveConflicts } from "@/lib/memory-contract.ts";
 import AppShell from "@/components/app-shell";
+import { describeMemoryFailure, type MemoryFailure } from "@/lib/memory-errors.ts";
 import Chat from "@/components/chat";
 import MemoryRail, { type RailFact } from "@/components/memory-rail";
 
@@ -44,10 +45,17 @@ async function AgentPageInner() {
    * in the record and never appeared here, because recall is a similarity
    * search and nothing in the query resembled them.
    */
-  const [health, feedback] = await Promise.all([
-    recallSafety(address).catch(() => []),
-    recallPreferences(address).catch(() => []),
-  ]);
+  // A failed read is reported, never turned into an empty record: "nothing stored" and
+  // "could not read" look identical on screen and only one of them is safe to act on.
+  let health: Awaited<ReturnType<typeof recallSafety>> = [];
+  let feedback: Awaited<ReturnType<typeof recallPreferences>> = [];
+  let unavailable: MemoryFailure | undefined;
+  try {
+    [health, feedback] = await Promise.all([recallSafety(address), recallPreferences(address)]);
+  } catch (error) {
+    console.error("[fuuud] agent page: record unreadable:", error instanceof Error ? error.message : error);
+    unavailable = describeMemoryFailure(error);
+  }
 
   const h = resolveConflicts(health);
   const f = resolveConflicts(feedback);
@@ -60,8 +68,8 @@ async function AgentPageInner() {
   return (
     <AppShell address={address} active="/agent" fixedViewport>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_328px] overflow-hidden">
-        <Chat />
-        <MemoryRail facts={facts} />
+        <Chat unavailable={unavailable} />
+        <MemoryRail facts={facts} unavailable={unavailable} />
       </div>
     </AppShell>
   );

@@ -5,6 +5,7 @@ import { recallSafety, recallPreferences, recallFeedback, resolveConflicts, reme
 import { extractFacts } from "@/lib/extract.ts";
 import { answersNoRestrictions, CLEARANCE_CLAIM } from "@/lib/clearance.ts";
 import { buildPlanWeek } from "@/lib/plan-week.ts";
+import { describeMemoryFailure } from "@/lib/memory-errors.ts";
 import { buildSafetyConstraintsText } from "@/lib/safety.ts";
 
 /*
@@ -94,9 +95,13 @@ async function postHandler(req: Request) {
       return new Response("Create your memory account first at /setup.", { status: 428 });
     }
     console.error("recall failed", error);
+    const failure = describeMemoryFailure(error);
+    // Fails CLOSED with the real reason. A refused key needs a different action from a slow relayer.
     return new Response(
-      "I can't reach your memory right now, so I won't guess at your conditions. Try again in a moment.",
-      { status: 503 },
+      failure.kind === "key-refused"
+        ? "I can't read your memory: Walrus Memory refused this app's key for your account, so I won't guess at your conditions. Set it up again at /setup, or reload in a minute if you changed nothing."
+        : "I can't reach your memory right now, so I won't guess at your conditions. Try again in a moment.",
+      { status: failure.kind === "key-refused" ? 409 : 503 },
     );
   }
 

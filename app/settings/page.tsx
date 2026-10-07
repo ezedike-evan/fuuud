@@ -8,6 +8,9 @@ import ConnectedAgents from "@/components/connected-agents";
 import { listConnectedApps } from "@/app/actions/connectors";
 import RevokeButton from "@/components/revoke-button";
 import AppShell from "@/components/app-shell";
+import MemoryUnavailable from "@/components/memory-unavailable";
+import { describeMemoryFailure, type MemoryFailure } from "@/lib/memory-errors.ts";
+import type { RecalledFact } from "@/lib/memory-contract.ts";
 import ForgetButton from "@/components/forget-button";
 import { blobExplorerUrl } from "@/lib/walrus-links";
 
@@ -50,11 +53,17 @@ async function SettingsPageInner() {
   if (!address) redirect("/signin");
   requireAccount();
 
-  const empty = { active: [], superseded: [], retracted: [] };
-  const { health, feedback } = await listMemory().catch(() => ({
-    health: empty,
-    feedback: empty,
-  }));
+  const empty: { active: RecalledFact[]; superseded: RecalledFact[]; retracted: RecalledFact[] } = { active: [], superseded: [], retracted: [] };
+  let health = empty;
+  let feedback = empty;
+  let unavailable: MemoryFailure | undefined;
+  try {
+    ({ health, feedback } = await listMemory());
+  } catch (error) {
+    // Say so: an empty ledger here reads as "nothing is stored about me".
+    console.error("[fuuud] settings: record unreadable:", error instanceof Error ? error.message : error);
+    unavailable = describeMemoryFailure(error);
+  }
 
   const connected = await listConnectedApps().catch(() => ({ enabled: false, apps: [], error: undefined as string | undefined }));
 
@@ -90,6 +99,8 @@ async function SettingsPageInner() {
           </dl>
         </div>
 
+        {unavailable && <div className="mt-8"><MemoryUnavailable failure={unavailable} /></div>}
+
         {/* the ledger */}
         <div className="mt-8 overflow-hidden rounded-[10px] border border-line">
           <div className="grid grid-cols-[104px_118px_minmax(0,1fr)_92px_78px] gap-[18px] border-b border-line bg-surface px-5 py-[11px]">
@@ -100,7 +111,7 @@ async function SettingsPageInner() {
 
           {active.length === 0 && superseded.length === 0 && retracted.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-ink-faint">
-              Nothing stored yet. Tell the agent about a condition and it will appear here.
+              {unavailable ? "The ledger is empty because your record could not be read, not because nothing is stored." : "Nothing stored yet. Tell the agent about a condition and it will appear here."}
             </p>
           ) : (
             <>

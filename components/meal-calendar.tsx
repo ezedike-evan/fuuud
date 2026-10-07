@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { generatePlanWeek, removeMeal, declareNoRestrictions, type PlanWeek } from "@/app/actions/plan";
 import { SLOTS, dayLabel } from "@/lib/plan";
 import { googleCalendarUrl } from "@/lib/ics";
+import MemoryUnavailable from "./memory-unavailable";
 
 /**
  * The week, screened against the record as it stands right now.
@@ -27,6 +28,17 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
         setError(e instanceof Error ? e.message : "That did not work.");
       }
     });
+  }
+
+  // The record could not be read: say so INSTEAD of the plan. An empty week here would look
+  // like "no allergies" and invite the person to plan on top of nothing.
+  if (week.unavailable) {
+    return (
+      <>
+        <h1 className="font-display font-medium text-[40px] leading-[1.05] tracking-[-0.03em]">Your week</h1>
+        <div className="mt-6 max-w-2xl"><MemoryUnavailable failure={week.unavailable} /></div>
+      </>
+    );
   }
 
   const clashes = week.meals.filter((m) => !m.safe);
