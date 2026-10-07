@@ -1,9 +1,9 @@
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { updateRecord } from "@/lib/notify-store.ts";
 import { isSubscription } from "@/lib/push.ts";
 import { buildPlanWeek } from "@/lib/plan-week.ts";
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
   const { subscription, tz } = (await req.json().catch(() => ({}))) as { subscription?: unknown; tz?: unknown };
@@ -20,3 +20,6 @@ export async function DELETE() {
   await updateRecord(address, ({ push: _drop, ...rest }) => rest);
   return Response.json({ ok: true });
 }
+
+// Wrapped so the person's memory account is in scope (see inScope in lib/session.ts).
+export const POST = (req: Request) => inScope(() => postHandler(req));

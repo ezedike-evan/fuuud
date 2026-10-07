@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { readClient } from "@/lib/oauth/clients.ts";
 import { readPending } from "@/lib/oauth/pending.ts";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // Anti-framing is enforced by HTTP headers in next.config.ts. (A <meta> CSP tag cannot
 // carry frame-ancestors, so it would look like protection and do nothing.)
 
-export default async function ConsentPage() {
+async function ConsentPageInner() {
   const pending = await readPending();
   if (!pending) redirect("/oauth/error?reason=expired");
 
@@ -39,4 +39,9 @@ export default async function ConsentPage() {
       />
     </div>
   );
+}
+
+// Wrapped so the person's memory account is in scope for everything above (see inScope).
+export default function ConsentPage() {
+  return inScope(ConsentPageInner);
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { currentScope } from "@/lib/memwal-scope.ts";
 import { hasPending } from "@/lib/oauth/pending.ts";
 import Wordmark from "@/components/wordmark";
@@ -8,7 +8,7 @@ import MemorySetup from "@/components/memory-setup";
 
 export const dynamic = "force-dynamic";
 
-export default async function SetupPage() {
+async function SetupPageInner() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
   if (currentScope()?.creds) redirect((await hasPending()) ? "/oauth/consent" : "/agent");
@@ -19,4 +19,9 @@ export default async function SetupPage() {
       <MemorySetup address={address} />
     </div>
   );
+}
+
+// Wrapped so the person's memory account is in scope for everything above (see inScope).
+export default function SetupPage() {
+  return inScope(SetupPageInner);
 }

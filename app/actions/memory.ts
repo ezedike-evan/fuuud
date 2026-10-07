@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import {
   rememberFact,
   forgetFact as retract,
@@ -18,23 +18,29 @@ async function requireAddress() {
 }
 
 export async function saveFact(kind: FactKind, text: string, userTurn?: string) {
-  const address = await requireAddress();
-  return rememberFact(address, kind, text, { userTurn });
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireAddress();
+    return rememberFact(address, kind, text, { userTurn });
+  });
 }
 
 /** Everything currently stored about this user, conflicts already resolved. */
 export async function listMemory() {
-  const address = await requireAddress();
-  const [health, feedback] = await Promise.all([
-    // Stable queries: the settings ledger must list EVERYTHING stored, and a
-    // hand-written query only ever surfaces the kinds it happens to name.
-    recallSafety(address),
-    recallPreferences(address),
-  ]);
-  return {
-    health: resolveConflicts(health),
-    feedback: resolveConflicts(feedback),
-  };
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireAddress();
+    const [health, feedback] = await Promise.all([
+      // Stable queries: the settings ledger must list EVERYTHING stored, and a
+      // hand-written query only ever surfaces the kinds it happens to name.
+      recallSafety(address),
+      recallPreferences(address),
+    ]);
+    return {
+      health: resolveConflicts(health),
+      feedback: resolveConflicts(feedback),
+    };
+  });
 }
 
 /**
@@ -51,9 +57,12 @@ export async function listMemory() {
  * expires.
  */
 export async function forgetFact(fact: string) {
-  const address = await requireAddress();
-  const outcome = await retract(address, fact);
-  revalidatePath("/settings");
-  revalidatePath("/agent");
-  return outcome;
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireAddress();
+    const outcome = await retract(address, fact);
+    revalidatePath("/settings");
+    revalidatePath("/agent");
+    return outcome;
+  });
 }

@@ -13,7 +13,7 @@ import { devMockCreds, devMockEnabled } from "@/lib/oauth/dev.ts";
 import { json, notConfigured } from "@/lib/oauth/http.ts";
 import { clearPending, readPending } from "@/lib/oauth/pending.ts";
 import { readClient } from "@/lib/oauth/clients.ts";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,7 +42,7 @@ const timingSafeEqual = (a: string, b: string) => {
  *
  * The body contains a private key. It is never logged and never echoed back.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const off = notConfigured();
   if (off) return off;
   const origin = req.headers.get("origin");
@@ -158,3 +158,6 @@ export async function POST(req: Request) {
     return json({ error: "temporarily_unavailable", message: "Could not save the connection. Try again." }, 503);
   }
 }
+
+// Wrapped so the person's memory account is in scope (see inScope in lib/session.ts).
+export const POST = (req: Request) => inScope(() => postHandler(req));

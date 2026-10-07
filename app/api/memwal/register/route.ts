@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (!address) return new Response("Not signed in", { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { accountId, delegateKey, delegatePublicKey } = body ?? {};
+  const { accountId, delegateKey, delegatePublicKey, created } = body ?? {};
   if (typeof accountId !== "string" || !OBJECT_ID.test(accountId)) return new Response("accountId must be a 0x object id", { status: 400 });
   if (typeof delegateKey !== "string" || !HEX.test(delegateKey)) return new Response("delegateKey must be hex", { status: 400 });
   if (typeof delegatePublicKey !== "string" || !HEX.test(delegatePublicKey)) return new Response("delegatePublicKey must be hex", { status: 400 });
@@ -35,7 +35,8 @@ export async function POST(req: Request) {
 
   (await cookies()).set(
     MEMWAL_COOKIE,
-    sealCreds({ accountId, delegateKey, delegatePublicKey, owner: address }),
+    // `freshAt` only when this setup CREATED the account; reusing an existing one must keep the restore safety net.
+    sealCreds({ accountId, delegateKey, delegatePublicKey, owner: address, ...(created === true ? { freshAt: Date.now() } : {}) }),
     MEMWAL_COOKIE_OPTIONS,
   );
   return Response.json({ ok: true });

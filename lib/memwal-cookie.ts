@@ -1,7 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import { enterScope, type MemwalCreds } from "./memwal-scope.ts";
+import type { MemwalCreds } from "./memwal-scope.ts";
 
 /**
  * The person's delegate key, sealed in their own httpOnly cookie.
@@ -47,30 +47,40 @@ export function openCreds(cookie: string | undefined): MemwalCreds | null {
     const decipher = crypto.createDecipheriv("aes-256-gcm", cipherKey(), iv);
     decipher.setAuthTag(tag);
     const parsed = JSON.parse(Buffer.concat([decipher.update(body), decipher.final()]).toString("utf8"));
-    const { accountId, delegateKey, delegatePublicKey, owner } = parsed ?? {};
+    const { accountId, delegateKey, delegatePublicKey, owner, freshAt } = parsed ?? {};
     if (![accountId, delegateKey, delegatePublicKey, owner].every((v) => typeof v === "string" && v)) return null;
-    return { accountId, delegateKey, delegatePublicKey, owner: owner.toLowerCase() };
+    return {
+      accountId,
+      delegateKey,
+      delegatePublicKey,
+      owner: owner.toLowerCase(),
+      // Optional and backward compatible: cookies sealed before this field existed still open.
+      ...(typeof freshAt === "number" && Number.isFinite(freshAt) ? { freshAt } : {}),
+    };
   } catch {
     return null;
   }
 }
 
 /**
- * Called once the session address is known. Binds that person's credentials for
- * the rest of the request.
+ * The credentials sealed for THIS person, or null.
  *
- * Credentials sealed for a DIFFERENT address are ignored: signing out and in as
- * someone else on the same browser must never reach the first person's record.
+ * Credentials sealed for a DIFFERENT address are ignored: signing out and in as someone
+ * else on the same browser must never reach the first person's record.
+ *
+ * This only LOOKS UP. It must not try to establish the request scope itself: an
+ * AsyncLocalStorage `enterWith` made inside an awaited helper is invisible to the code
+ * that awaited it (verified), which is how every page ended up believing nobody had an
+ * account. The scope is established by `inScope` in lib/session.ts, which wraps the
+ * whole handler.
  */
-export async function bindMemwal(address: string): Promise<MemwalCreds | null> {
-  let creds: MemwalCreds | null = null;
+export async function credsFor(address: string): Promise<MemwalCreds | null> {
   try {
     const jar = await cookies();
     const opened = openCreds(jar.get(MEMWAL_COOKIE)?.value);
-    if (opened && opened.owner === address.toLowerCase()) creds = opened;
+    return opened && opened.owner === address.toLowerCase() ? opened : null;
   } catch {
-    // Outside a request (build-time evaluation). No creds, no scope.
+    // Outside a request (build-time evaluation).
+    return null;
   }
-  enterScope({ creds });
-  return creds;
 }

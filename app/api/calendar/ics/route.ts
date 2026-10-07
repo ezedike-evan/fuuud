@@ -1,4 +1,4 @@
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { buildPlanWeek } from "@/lib/plan-week.ts";
 import { buildIcs } from "@/lib/ics.ts";
 
@@ -6,7 +6,7 @@ import { buildIcs } from "@/lib/ics.ts";
  * The plan as a calendar file. Only meals that pass the screen RIGHT NOW are
  * exported: a file leaves the app and cannot be recalled when the record changes.
  */
-export async function GET() {
+async function getHandler() {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
   const week = await buildPlanWeek(address);
@@ -20,3 +20,6 @@ export async function GET() {
     },
   });
 }
+
+// Wrapped so the person's memory account is in scope (see inScope in lib/session.ts).
+export const GET = () => inScope(() => getHandler());

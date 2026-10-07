@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { recallHealth, resolveConflicts, claimsOfKind } from "@/lib/memory-contract.ts";
 import { rankConsultants } from "@/lib/consultants.ts";
@@ -7,7 +7,7 @@ import AppShell from "@/components/app-shell";
 
 export const dynamic = "force-dynamic";
 
-export default async function ConsultantsPage() {
+async function ConsultantsPageInner() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
   requireAccount();
@@ -74,4 +74,9 @@ export default async function ConsultantsPage() {
       </div>
     </AppShell>
   );
+}
+
+// Wrapped so the person's memory account is in scope for everything above (see inScope).
+export default function ConsultantsPage() {
+  return inScope(ConsultantsPageInner);
 }

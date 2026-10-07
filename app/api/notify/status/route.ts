@@ -1,4 +1,4 @@
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { getRecord } from "@/lib/notify-store.ts";
 import { pollUpdates, telegramConfigured } from "@/lib/telegram.ts";
 import { pushConfigured, vapidPublicKey } from "@/lib/push.ts";
@@ -8,7 +8,7 @@ import { buildPlanWeek } from "@/lib/plan-week.ts";
  * `?poll=1` also fetches Telegram updates first. That is the local-dev path (no
  * public webhook); with a webhook set it is a harmless no-op.
  */
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
 
@@ -34,3 +34,6 @@ export async function DELETE() {
   await saveRecord(address, { tz: 0, reminders: [] });
   return Response.json({ ok: true });
 }
+
+// Wrapped so the person's memory account is in scope (see inScope in lib/session.ts).
+export const GET = (req: Request) => inScope(() => getHandler(req));

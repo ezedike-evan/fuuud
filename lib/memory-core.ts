@@ -1,5 +1,7 @@
 import { createMemWal as getMemWal, currentAccountKey, memwalMode, withRelayerRetry } from "./memwal-client.ts";
 import { healthNs, feedbackNs, planNs } from "./namespaces.ts";
+import { currentScope } from "./memwal-scope.ts";
+import { isFreshAccount } from "./fresh.ts";
 import {
   DUPLICATE_DISTANCE,
   RELEVANCE_DISTANCE,
@@ -220,6 +222,10 @@ async function recallFrom(namespace: string, query: string): Promise<RecalledFac
 
   const [hits, tombstones] = await Promise.all([read(), sweepTombstones()]);
   if (hits.length) return [...hits, ...tombstones];
+
+  // An account /setup created minutes ago has nothing on Walrus to rebuild from. Skipping the
+  // restore (10-18 s per namespace) is what keeps the first page after setup from hanging.
+  if (isFreshAccount(currentScope()?.creds)) return [...hits, ...tombstones];
 
   await warmOnce(namespace, memwal);
   return [...(await read()), ...tombstones];

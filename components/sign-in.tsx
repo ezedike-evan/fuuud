@@ -129,7 +129,7 @@ export default function SignIn() {
       if (!res.ok) throw new Error(await res.text());
 
       // A connection request may be waiting (an AI app sent the person here to approve it).
-      const waiting = await fetch("/api/oauth/pending").then((r) => r.json()).catch(() => ({ pending: false }));
+      const waiting = await fetch("/api/oauth/pending", { signal: AbortSignal.timeout(4000) }).then((r) => r.json()).catch(() => ({ pending: false }));
       window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
       const raw = e instanceof Error ? e.message : "";

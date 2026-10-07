@@ -25,6 +25,12 @@ export type MemwalCreds = {
   delegatePublicKey: string;
   /** The Sui address that owns the account. Must equal the session address. */
   owner: string;
+  /**
+   * When /setup CREATED this account (epoch ms). Absent for an account the person already
+   * had. Lets the memory layer skip the index rebuild for an account that cannot have
+   * memories yet; see lib/fresh.ts.
+   */
+  freshAt?: number;
 };
 
 export type MemwalScope = {

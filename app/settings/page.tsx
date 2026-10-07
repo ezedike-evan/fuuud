@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { listMemory } from "@/app/actions/memory";
 import Connections from "@/components/connections";
@@ -45,7 +45,7 @@ const KIND_COLOR: Record<string, string> = {
   goal: "var(--c-accent)",
 };
 
-export default async function SettingsPage() {
+async function SettingsPageInner() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
   requireAccount();
@@ -201,4 +201,9 @@ export default async function SettingsPage() {
       </div>
     </AppShell>
   );
+}
+
+// Wrapped so the person's memory account is in scope for everything above (see inScope).
+export default function SettingsPage() {
+  return inScope(SettingsPageInner);
 }

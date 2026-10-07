@@ -19,7 +19,7 @@ const LABEL: Record<Step, string> = {
   account: "Creating your account onchain…",
   delegate: "Registering this app as your delegate…",
   verify: "Waiting for the relayer to see the key…",
-  done: "Done",
+  done: "Opening your memory…",
 };
 
 /**
@@ -94,6 +94,7 @@ export default function MemorySetup({ address }: { address: string }) {
       // Reuse the account if this address already has one: the chain knows it, so
       // clearing site data never strands a person on "already exists".
       let accountId = "";
+      let created = false;
       {
         const found = await fetch("/api/memwal/account");
         if (found.ok) accountId = ((await found.json()) as { accountId: string | null }).accountId ?? "";
@@ -101,6 +102,7 @@ export default function MemorySetup({ address }: { address: string }) {
       if (!accountId) {
         setStep("account");
         accountId = (await createAccount(base)).accountId;
+        created = true;
       }
 
       setStep("delegate");
@@ -111,12 +113,13 @@ export default function MemorySetup({ address }: { address: string }) {
       const res = await fetch("/api/memwal/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accountId, delegateKey: delegate.privateKey, delegatePublicKey: hex(delegate.publicKey) }),
+        body: JSON.stringify({ accountId, delegateKey: delegate.privateKey, delegatePublicKey: hex(delegate.publicKey), created }),
       });
       if (!res.ok) throw new Error(await res.text());
 
       setStep("done");
-      const waiting = await fetch("/api/oauth/pending").then((r) => r.json()).catch(() => ({ pending: false }));
+      // Bounded: a slow or failing lookup must never leave the person on a finished-looking page.
+      const waiting = await fetch("/api/oauth/pending", { signal: AbortSignal.timeout(4000) }).then((r) => r.json()).catch(() => ({ pending: false }));
       window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
       setStep("idle");

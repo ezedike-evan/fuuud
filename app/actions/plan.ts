@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { generateObject } from "ai";
 import { chatModel } from "@/lib/model.ts";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import {
   recallSafety, recallPreferences, recallPlan, resolveConflicts,
   claimsOfKind, rememberFact, forgetFact, rememberPlanBatch,
@@ -25,7 +25,10 @@ async function requireOwner() {
 }
 
 export async function getPlanWeek(): Promise<PlanWeek> {
-  return buildPlanWeek(await requireOwner());
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    return buildPlanWeek(await requireOwner());
+  });
 }
 
 const MealSchema = z.object({
@@ -48,53 +51,56 @@ const MealSchema = z.object({
  * someone is allergic to is worse than no calendar.
  */
 export async function generatePlanWeek(justCleared = false): Promise<PlanWeek> {
-  const address = await requireOwner();
-  const profile = await currentProfile(address);
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireOwner();
+    const profile = await currentProfile(address);
 
-  /*
-   * Refuse to plan for someone whose allergies nobody has asked about. Same
-   * rule as the chat agent — a week of meals is seven times the exposure.
-   *
-   * `justCleared` covers the one case where the read cannot be trusted: the
-   * person has just pressed "I have no allergies or conditions" and the write
-   * is milliseconds old. Depending on recall to see it immediately would send
-   * them back to the same blocked screen they just answered, which reads as
-   * the button being broken.
-   */
-  if (!justCleared && !allergyStatusKnown(profile)) return getPlanWeek();
-  const planningProfile = justCleared ? { ...profile, cleared: true } : profile;
+    /*
+     * Refuse to plan for someone whose allergies nobody has asked about. Same
+     * rule as the chat agent — a week of meals is seven times the exposure.
+     *
+     * `justCleared` covers the one case where the read cannot be trusted: the
+     * person has just pressed "I have no allergies or conditions" and the write
+     * is milliseconds old. Depending on recall to see it immediately would send
+     * them back to the same blocked screen they just answered, which reads as
+     * the button being broken.
+     */
+    if (!justCleared && !allergyStatusKnown(profile)) return getPlanWeek();
+    const planningProfile = justCleared ? { ...profile, cleared: true } : profile;
 
-  const dates = weekFrom();
-  const { object } = await generateObject({
-    model: await chatModel(),
-    schema: MealSchema,
-    system: [
-      "You plan a week of meals for one person in Nigeria.",
-      "Every meal is a dish people actually eat here - jollof, ofada, moi moi, egusi, akamu, plantain, garden egg, ewa agoyin, tuwo, pepper soup, efo riro.",
-      "Name the dish and its main protein or side. No commentary, no nutrition notes, no brand names.",
-      "Vary it across the week. Do not repeat the same dish twice in three days.",
-      "",
-      buildSafetyConstraintsText(planningProfile),
-    ].join("\n"),
-    prompt:
-      `Plan breakfast, lunch and dinner for each of these dates: ${dates.join(", ")}. ` +
-      `Return one entry per date and slot.`,
+    const dates = weekFrom();
+    const { object } = await generateObject({
+      model: await chatModel(),
+      schema: MealSchema,
+      system: [
+        "You plan a week of meals for one person in Nigeria.",
+        "Every meal is a dish people actually eat here - jollof, ofada, moi moi, egusi, akamu, plantain, garden egg, ewa agoyin, tuwo, pepper soup, efo riro.",
+        "Name the dish and its main protein or side. No commentary, no nutrition notes, no brand names.",
+        "Vary it across the week. Do not repeat the same dish twice in three days.",
+        "",
+        buildSafetyConstraintsText(planningProfile),
+      ].join("\n"),
+      prompt:
+        `Plan breakfast, lunch and dinner for each of these dates: ${dates.join(", ")}. ` +
+        `Return one entry per date and slot.`,
+    });
+
+    const proposed: PlannedMeal[] = object.meals
+      .filter((m) => dates.includes(m.date) && SLOTS.includes(m.slot as Slot))
+      .map((m) => ({ date: m.date, slot: m.slot as Slot, meal: m.meal.trim() }));
+
+    // The gate. Unsafe proposals are discarded, never stored and never shown.
+    const safe = screenPlan(proposed, planningProfile).filter((m) => m.safe);
+
+    // One batched write, not one write per meal - see rememberPlanBatch.
+    await rememberPlanBatch(address, safe.map(formatPlanClaim)).catch((error) => {
+      console.error("[fuuud] could not store planned meals:", error);
+    });
+
+    revalidatePath("/calendar");
+    return getPlanWeek();
   });
-
-  const proposed: PlannedMeal[] = object.meals
-    .filter((m) => dates.includes(m.date) && SLOTS.includes(m.slot as Slot))
-    .map((m) => ({ date: m.date, slot: m.slot as Slot, meal: m.meal.trim() }));
-
-  // The gate. Unsafe proposals are discarded, never stored and never shown.
-  const safe = screenPlan(proposed, planningProfile).filter((m) => m.safe);
-
-  // One batched write, not one write per meal - see rememberPlanBatch.
-  await rememberPlanBatch(address, safe.map(formatPlanClaim)).catch((error) => {
-    console.error("[fuuud] could not store planned meals:", error);
-  });
-
-  revalidatePath("/calendar");
-  return getPlanWeek();
 }
 
 /**
@@ -111,26 +117,32 @@ export async function generatePlanWeek(justCleared = false): Promise<PlanWeek> {
  * telling the agent about a condition — the newer fact wins on date.
  */
 export async function declareNoRestrictions(): Promise<PlanWeek> {
-  const address = await requireOwner();
-  for (const claim of ["no known allergies", "no known medical conditions"]) {
-    await rememberFact(address, "clearance", claim).catch((error) => {
-      console.error("[fuuud] could not store clearance:", error);
-    });
-  }
-  revalidatePath("/calendar");
-  revalidatePath("/agent");
-  // Plan straight away rather than waiting for the clearance to come back
-  // through recall — the person has answered, and being asked again would look
-  // like the button did nothing.
-  return generatePlanWeek(true);
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireOwner();
+    for (const claim of ["no known allergies", "no known medical conditions"]) {
+      await rememberFact(address, "clearance", claim).catch((error) => {
+        console.error("[fuuud] could not store clearance:", error);
+      });
+    }
+    revalidatePath("/calendar");
+    revalidatePath("/agent");
+    // Plan straight away rather than waiting for the clearance to come back
+    // through recall — the person has answered, and being asked again would look
+    // like the button did nothing.
+    return generatePlanWeek(true);
+  });
 }
 
 /** Drop one meal from the calendar. Retraction, not deletion — same as a fact. */
 export async function removeMeal(date: string, slot: string): Promise<PlanWeek> {
-  const address = await requireOwner();
-  const stored = planFromFacts(resolveConflicts(await recallPlan(address).catch(() => [])).active);
-  const target = stored.find((m) => m.date === date && m.slot === slot);
-  if (target) await forgetFact(address, formatPlanClaim(target));
-  revalidatePath("/calendar");
-  return getPlanWeek();
+  // The person's own memory account must be in scope for everything below (see inScope).
+  return inScope(async () => {
+    const address = await requireOwner();
+    const stored = planFromFacts(resolveConflicts(await recallPlan(address).catch(() => [])).active);
+    const target = stored.find((m) => m.date === date && m.slot === slot);
+    if (target) await forgetFact(address, formatPlanClaim(target));
+    revalidatePath("/calendar");
+    return getPlanWeek();
+  });
 }

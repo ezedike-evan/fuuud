@@ -1,6 +1,6 @@
 import { streamText, StreamData } from "ai";
 import { chatModel, describeModel } from "@/lib/model.ts";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { recallSafety, recallPreferences, recallFeedback, resolveConflicts, rememberFact, isOffTheRecord, claimsOfKind, unionFacts } from "@/lib/memory-contract.ts";
 import { extractFacts } from "@/lib/extract.ts";
 import { answersNoRestrictions, CLEARANCE_CLAIM } from "@/lib/clearance.ts";
@@ -46,7 +46,7 @@ const BASE_PROMPT = [
   "Keep every reply under 110 words.",
 ].join(" ");
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
 
@@ -281,3 +281,6 @@ async function persist(address: string, userTurn: string, asked: string): Promis
     return { written, skipped, failed: detail };
   }
 }
+
+// Wrapped so the person's memory account is in scope (see inScope in lib/session.ts).
+export const POST = (req: Request) => inScope(() => postHandler(req));

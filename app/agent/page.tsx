@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getOwnerAddress } from "@/lib/session.ts";
+import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { recallSafety, recallPreferences, resolveConflicts } from "@/lib/memory-contract.ts";
 import AppShell from "@/components/app-shell";
@@ -30,7 +30,7 @@ function toRail(
   });
 }
 
-export default async function AgentPage() {
+async function AgentPageInner() {
   const address = await getOwnerAddress();
   if (!address) redirect("/signin");
   requireAccount();
@@ -65,4 +65,9 @@ export default async function AgentPage() {
       </div>
     </AppShell>
   );
+}
+
+// Wrapped so the person's memory account is in scope for everything above (see inScope).
+export default function AgentPage() {
+  return inScope(AgentPageInner);
 }
