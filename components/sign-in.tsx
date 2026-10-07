@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 // alias pins the exact version enoki expects, so no cast is needed here.
 import { SuiClient, getFullnodeUrl } from "@mysten/sui-enoki/client";
 import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
+import { friendlyError } from "@/lib/friendly-errors";
 
 /*
  * One network constant for the SuiClient, the wallet registration and the
@@ -29,6 +30,10 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
   const [redirect, setRedirect] = useState<string | null>(null);
+  // Enoki opens its popup BEFORE asking its API for a login nonce, so a refused key leaves a
+  // blank window and a console error nobody sees. Ask first and say what is wrong.
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [enokiRefused, setEnokiRefused] = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_ENOKI_API_KEY;
@@ -63,6 +68,15 @@ export default function SignIn() {
     });
     setWallet(wallets.google ?? null);
     return unregister;
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/auth/preflight")
+      .then((r) => r.json())
+      .then((r: { ok: boolean; problem?: string }) => live && !r.ok && setBlocked(r.problem ?? "Sign-in is not available."))
+      .catch(() => {});
+    return () => { live = false; };
   }, []);
 
   async function signIn() {
@@ -118,7 +132,11 @@ export default function SignIn() {
       const waiting = await fetch("/api/oauth/pending").then((r) => r.json()).catch(() => ({ pending: false }));
       window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign-in failed");
+      const raw = e instanceof Error ? e.message : "";
+      // Enoki's own refusal is NOT a redirect-URI problem (Google was never reached), so do not
+      // send people hunting for one.
+      setEnokiRefused(/Enoki API failed/.test(raw));
+      setError(friendlyError(e, "Sign-in failed", NETWORK));
     } finally {
       setBusy(false);
     }
@@ -137,7 +155,7 @@ export default function SignIn() {
       <button
         type="button"
         onClick={signIn}
-        disabled={busy || !configured}
+        disabled={busy || !configured || blocked !== null}
         className="cta mt-[30px] h-[54px] w-full text-[15px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -148,6 +166,12 @@ export default function SignIn() {
         </svg>
         {busy ? "Signing in…" : "Continue with Google"}
       </button>
+
+      {blocked && (
+        <p role="alert" className="mt-4 rounded-lg border border-danger-line px-3 py-2.5 text-[12.5px] leading-relaxed text-danger">
+          {blocked}
+        </p>
+      )}
 
       {!configured && (
         <p className="mt-4 rounded-lg border border-warn-line px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
@@ -164,9 +188,9 @@ export default function SignIn() {
             Google reports redirect_uri_mismatch on its own page, not back to
             us, so this never renders for that case — but the URI is the first
             thing you need either way, and reverse-engineering it from the SDK
-            default is a waste of an afternoon. Show it whenever sign-in fails.
+            default is a waste of an afternoon. Shown for sign-in failures, except when Enoki itself refused: Google was never reached, so the URI is not the cause.
           */}
-          {redirect && (
+          {redirect && !enokiRefused && (
             <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">
               This app sends{" "}
               <code className="font-mono break-all text-ink">{redirect}</code> as its redirect URI.

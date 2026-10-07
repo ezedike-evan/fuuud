@@ -1,5 +1,6 @@
 import { getOwnerAddress } from "@/lib/session.ts";
-import { fetchAccountIdForOwner, grpcFor, relayerChain } from "@/lib/account-lookup.ts";
+import { fetchAccountIdForOwner, grpcFor } from "@/lib/account-lookup.ts";
+import { inspectCached } from "@/lib/chain-config.ts";
 
 /**
  * The signed-in person's existing MemWalAccount, if any.
@@ -11,12 +12,12 @@ import { fetchAccountIdForOwner, grpcFor, relayerChain } from "@/lib/account-loo
 export async function GET() {
   const address = await getOwnerAddress();
   if (!address) return new Response("Not signed in", { status: 401 });
-  const registryId = process.env.MEMWAL_REGISTRY_ID?.trim();
-  if (!registryId) return new Response("MEMWAL_REGISTRY_ID is not set on the server.", { status: 503 });
+  const checked = await inspectCached();
+  if (!checked.ok) return new Response(checked.problem, { status: 503 });
+  const { config } = checked;
 
   try {
-    const chain = await relayerChain(process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz");
-    return Response.json({ accountId: await fetchAccountIdForOwner(grpcFor(chain), registryId, address) });
+    return Response.json({ accountId: await fetchAccountIdForOwner(grpcFor(config), config.registryId, address) });
   } catch (error) {
     return new Response(error instanceof Error ? error.message : "Account lookup failed", { status: 502 });
   }

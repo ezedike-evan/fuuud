@@ -6,6 +6,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
+import { friendlyError } from "@/lib/friendly-errors";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -111,7 +112,7 @@ export default function OAuthConsent({ address, clientName, destination, scopes,
     } catch (e) {
       setBusy(null);
       setStep("");
-      setError(e instanceof Error ? e.message : "Could not complete the connection.");
+      setError(friendlyError(e, "Could not complete the connection.", NETWORK));
     }
   }
 
@@ -121,7 +122,7 @@ export default function OAuthConsent({ address, clientName, destination, scopes,
       await send({ deny: true });
     } catch (e) {
       setBusy(null);
-      setError(e instanceof Error ? e.message : "Could not cancel.");
+      setError(friendlyError(e, "Could not cancel.", NETWORK));
     }
   }
 

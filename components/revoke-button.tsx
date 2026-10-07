@@ -6,6 +6,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { removeDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
+import { friendlyError } from "@/lib/friendly-errors";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 
@@ -63,7 +64,7 @@ export default function RevokeButton({ address }: { address: string }) {
       setState("done");
     } catch (e) {
       setState("idle");
-      setError(e instanceof Error ? e.message : "Revoke failed");
+      setError(friendlyError(e, "Revoke failed", NETWORK));
     }
   }
 

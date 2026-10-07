@@ -6,6 +6,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
+import { friendlyError } from "@/lib/friendly-errors";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -86,7 +87,7 @@ export default function McpAccess({ address }: { address: string }) {
         },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create an agent key.");
+      setError(friendlyError(e, "Could not create an agent key.", NETWORK));
     } finally {
       setBusy(false);
     }

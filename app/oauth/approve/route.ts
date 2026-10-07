@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 
 import { appUrl } from "@/lib/app-url.ts";
-import { fetchAccountIdForOwner, grpcFor, relayerChain } from "@/lib/account-lookup.ts";
+import { fetchAccountIdForOwner, grpcFor } from "@/lib/account-lookup.ts";
+import { inspectCached } from "@/lib/chain-config.ts";
 import { keysMatch } from "@/lib/ed25519.ts";
 import { kvDel, kvIncr, kvSetNX } from "@/lib/kv.ts";
 import { currentScope } from "@/lib/memwal-scope.ts";
@@ -104,12 +105,11 @@ export async function POST(req: Request) {
       return json({ error: "invalid_request", message: "Create a new key for this connection." }, 400);
     }
 
-    const registryId = process.env.MEMWAL_REGISTRY_ID?.trim();
-    if (!registryId) return json({ error: "server_error", message: "MEMWAL_REGISTRY_ID is not set." }, 503);
+    const checked = await inspectCached();
+    if (!checked.ok) return json({ error: "server_error", message: checked.problem }, 503);
     let accountId: string | null;
     try {
-      const chain = await relayerChain(process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz");
-      accountId = await fetchAccountIdForOwner(grpcFor(chain), registryId, owner);
+      accountId = await fetchAccountIdForOwner(grpcFor(checked.config), checked.config.registryId, owner);
     } catch (error) {
       console.error("[fuuud] account lookup failed:", error instanceof Error ? error.message : error);
       return json({ error: "temporarily_unavailable", message: "Could not reach Sui. Try again." }, 503);

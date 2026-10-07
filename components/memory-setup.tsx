@@ -6,6 +6,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { createAccount, addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
+import { friendlyError } from "@/lib/friendly-errors";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const CHAIN = `sui:${NETWORK}` as const;
@@ -29,6 +30,9 @@ const LABEL: Record<Step, string> = {
 export default function MemorySetup({ address }: { address: string }) {
   const [wallet, setWallet] = useState<EnokiWallet | null>(null);
   const [step, setStep] = useState<Step>("idle");
+  // Checked on load: a misconfigured network/registry fails deep inside a wallet transaction with
+  // "Object ... not found". Say so up front, in words, and do not offer a button that cannot work.
+  const [misconfigured, setMisconfigured] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +48,21 @@ export default function MemorySetup({ address }: { address: string }) {
     });
     setWallet(wallets.google ?? null);
     return unregister;
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/memwal/config")
+      .then(async (res) => {
+        if (!live) return;
+        if (!res.ok) return setMisconfigured((await res.text()) || "This server's chain settings could not be verified.");
+        const cfg = (await res.json()) as { network?: string };
+        if (cfg.network && cfg.network !== NETWORK) {
+          setMisconfigured(`This page was built for ${NETWORK} but the relayer is on ${cfg.network}. Set NEXT_PUBLIC_SUI_NETWORK=${cfg.network} and redeploy.`);
+        }
+      })
+      .catch(() => {});
+    return () => { live = false; };
   }, []);
 
   async function run() {
@@ -101,7 +120,7 @@ export default function MemorySetup({ address }: { address: string }) {
       window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
       setStep("idle");
-      setError(e instanceof Error ? e.message : "Setup failed");
+      setError(friendlyError(e, "Setup failed", NETWORK));
     }
   }
 
@@ -127,11 +146,17 @@ export default function MemorySetup({ address }: { address: string }) {
       <button
         type="button"
         onClick={run}
-        disabled={busy || !wallet}
+        disabled={busy || !wallet || misconfigured !== null}
         className="cta mt-[26px] h-[54px] w-full text-[15px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
       >
         {LABEL[step]}
       </button>
+
+      {misconfigured && (
+        <p role="alert" className="mt-4 rounded-lg border border-danger-line px-3 py-2.5 text-[12.5px] leading-relaxed text-danger">
+          Setup is not available yet: {misconfigured}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="mt-4 rounded-lg border border-danger-line px-3 py-2.5 text-sm text-danger">

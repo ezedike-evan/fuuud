@@ -7,6 +7,7 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { removeDelegateKey } from "@mysten-incubation/memwal/account";
 import { disconnectApp, type ConnectedApp } from "@/app/actions/connectors";
 import { enokiSigner } from "@/lib/enoki-signer";
+import { friendlyError } from "@/lib/friendly-errors";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 
@@ -57,7 +58,7 @@ export default function ConnectedAgents({ address, initial, error }: { address: 
         setNote(`${app.name} was disconnected. It can no longer read or write your memory.`);
         if (publicKey && publicKey !== "dev") setOrphan({ name: app.name, publicKey });
       } catch (e) {
-        setProblem(e instanceof Error ? e.message : "Could not disconnect.");
+        setProblem(friendlyError(e, "Could not disconnect.", NETWORK));
       }
     });
   }
@@ -87,7 +88,7 @@ export default function ConnectedAgents({ address, initial, error }: { address: 
       setNote(`The key for ${orphan.name} was removed from your account onchain. The relayer may accept it for about 25 more seconds.`);
       setOrphan(null);
     } catch (e) {
-      setProblem(e instanceof Error ? e.message : "Could not remove the key.");
+      setProblem(friendlyError(e, "Could not remove the key.", NETWORK));
     } finally {
       setWorking(false);
     }
