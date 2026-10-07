@@ -353,11 +353,17 @@ test("an env key alone is enough to resolve a provider", () => {
   assert.equal(r.extract, r.chat);
 });
 
-test("KM_EXTRACT_MODEL is the only thing that splits the two", () => {
-  const bag = { keys: { groq: "k" }, models: { groq: "big-model" }, active: "groq" as const };
-  const r = resolveModels(bag, { KM_EXTRACT_MODEL: "small-model" });
+test("KM_EXTRACT_MODEL is the only thing that splits the two, on the deployment's own key", () => {
+  // The operator's override belongs to the operator's key. A visitor using their OWN key never
+  // inherits it: it is not provider-specific, so it could hand their provider a model id it has
+  // never heard of (see lib/model-select.test.ts).
+  const r = resolveModels({ keys: {}, models: { groq: "big-model" } }, { GROQ_API_KEY: "ops", KM_EXTRACT_MODEL: "small-model" });
   assert.equal(r.chat, "big-model");
   assert.equal(r.extract, "small-model");
+
+  const own = resolveModels({ keys: { groq: "mine" }, models: { groq: "big-model" } }, { KM_EXTRACT_MODEL: "small-model" });
+  assert.equal(own.chat, "big-model");
+  assert.equal(own.extract, "big-model", "a person's own key follows their own model choice");
 });
 
 test("no key anywhere fails with the code the chat UI branches on", () => {

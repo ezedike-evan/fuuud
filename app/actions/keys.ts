@@ -14,6 +14,7 @@ import { cookies } from "next/headers";
 import { getOwnerAddress } from "@/lib/session.ts";
 import { PROVIDERS, ORDER, isProvider, type Provider } from "@/lib/providers.ts";
 import { readKeyBag, seal, sources, KEYS_COOKIE, KEYS_COOKIE_OPTIONS } from "@/lib/keys.ts";
+import { resolveProvider } from "@/lib/model-select.ts";
 
 export type ProviderStatus = {
   provider: Provider;
@@ -74,8 +75,14 @@ export async function getKeySettings(): Promise<KeySettings> {
   });
 
   const usable = providers.filter((p) => p.mine || p.fromEnv);
-  const active =
-    bag.active && usable.some((p) => p.provider === bag.active) ? bag.active : usable[0]?.provider ?? null;
+  // Ask the same function the chat route uses, so the panel can never say one
+  // provider is active while another answers.
+  let active: Provider | null = null;
+  try {
+    active = usable.length ? resolveProvider(bag) : null;
+  } catch {
+    active = usable[0]?.provider ?? null;
+  }
 
   return { providers, active, empty: usable.length === 0 };
 }

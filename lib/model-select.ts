@@ -33,13 +33,25 @@ export function availableProviders(bag: KeyBag, env: Env = process.env): Provide
   return ORDER.filter((p) => Boolean(keyFor(p, bag, env)));
 }
 
+/** Providers the person has put their OWN key in (not the deployment's), in preference order. */
+export const ownProviders = (bag: KeyBag): Provider[] => ORDER.filter((p) => Boolean(bag.keys[p]?.trim()));
+
 /**
- * Which provider answers. The person's pinned choice wins, then
- * KM_MODEL_PROVIDER for a deployment that forces one, then whichever key exists.
+ * Which provider answers.
+ *
+ *   1. the person's explicit choice, if it has a key;
+ *   2. ANY provider they have their own key for. Adding a key is choosing to use
+ *      it: they should never have to also mark it "active", and the deployment's
+ *      keys or KM_MODEL_PROVIDER must never route around a key they paid for;
+ *   3. KM_MODEL_PROVIDER, for a deployment that forces one;
+ *   4. whichever deployment key exists.
  */
 export function resolveProvider(bag: KeyBag, env: Env = process.env): Provider {
   const chosen = bag.active;
   if (chosen && keyFor(chosen, bag, env)) return chosen;
+
+  const own = ownProviders(bag)[0];
+  if (own) return own;
 
   const pinned = env.KM_MODEL_PROVIDER?.trim().toLowerCase();
   if (pinned) {
@@ -88,10 +100,16 @@ export function modelId(
   bag: KeyBag,
   env: Env = process.env,
 ): string {
+  // KM_CHAT_MODEL / KM_EXTRACT_MODEL are the OPERATOR's model ids, meant for the
+  // operator's own key. They are not provider-specific, so applying one to a
+  // visitor's key for a different provider hands that provider a model id it has
+  // never heard of and every turn fails. A person using their own key gets their
+  // own model choice, or that provider's default.
+  const usingOwnKey = Boolean(bag.keys[provider]?.trim());
   const chat =
-    bag.models[provider]?.trim() || env.KM_CHAT_MODEL?.trim() || PROVIDERS[provider].chat;
+    bag.models[provider]?.trim() || (usingOwnKey ? "" : env.KM_CHAT_MODEL?.trim()) || PROVIDERS[provider].chat;
 
-  if (role === "extract") return env.KM_EXTRACT_MODEL?.trim() || chat;
+  if (role === "extract") return (usingOwnKey ? "" : env.KM_EXTRACT_MODEL?.trim()) || chat;
   return chat;
 }
 
