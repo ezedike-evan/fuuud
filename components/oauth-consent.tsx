@@ -7,6 +7,7 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
 import { friendlyError } from "@/lib/friendly-errors";
+import { fitLabel } from "@/lib/delegate-keys";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -101,7 +102,7 @@ export default function OAuthConsent({ address, clientName, destination, scopes,
         registryId: cfg.registryId,
         accountId,
         publicKey: delegate.publicKey,
-        label: `Fuuud connector: ${clientName}`.slice(0, 60),
+        label: fitLabel(`Fuuud connector: ${clientName}`),
         walletSigner: enokiSigner(wallet, account, `sui:${NETWORK}`, suiClient),
         suiNetwork: NETWORK,
         suiClient,

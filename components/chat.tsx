@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { openKeysPanel } from "./api-keys-menu";
@@ -9,6 +9,9 @@ import { announceSaving } from "@/lib/save-events";
 import MemoryUnavailable from "./memory-unavailable";
 import type { MemoryFailure } from "@/lib/memory-errors";
 import { useElapsed, walrusStage } from "@/lib/use-elapsed";
+import { useWriteJobs, type JobRef } from "@/lib/use-write-jobs";
+import { isSettled, overall, stageLabel } from "@/lib/write-stages";
+import Markdown from "./markdown";
 
 const STARTERS = [
   "I'm diabetic and groundnuts give me hives",
@@ -18,7 +21,7 @@ const STARTERS = [
 
 /** Shape of the provenance the route attaches to each assistant message. */
 type Recalled = { text: string; distance: number };
-type Stored = { written: string[]; skipped: string[]; failed: string | null; pending?: boolean };
+type Stored = { written: string[]; skipped: string[]; failed: string | null; pending?: boolean; jobs?: JobRef[] };
 type Annotation = { recalled?: Recalled[]; provider?: string; model?: string; stored?: Stored };
 
 /** `2026-08-27 | allergy | groundnuts - hives` → its three parts. */
@@ -44,6 +47,59 @@ function annotationOf(annotations: unknown[] | undefined): Annotation | null {
   return Object.keys(merged).length ? merged : null;
 }
 
+/**
+ * Follows the relayer jobs behind one reply's saved facts and shows the real stage,
+ * ending in either "saved" or the reason it failed. It never reports saved on the
+ * strength of the relayer merely accepting the write.
+ */
+function SaveChip({ jobs, onSettled, onActive }: { jobs: JobRef[]; onSettled: () => void; onActive: (active: boolean) => void }) {
+  const views = useWriteJobs(jobs);
+  const states = jobs.map((j) => views[j.jobId]?.state);
+  const unknown = states.some((s) => s === "unknown");
+  const state = overall(states);
+  const settled = unknown || isSettled(state);
+  const active = !settled;
+  const failure = jobs.map((j) => views[j.jobId]).find((v) => v && (v.state === "failed" || v.state === "not_found" || v.state === "unknown"));
+  const seconds = useElapsed(active);
+
+  useEffect(() => {
+    onActive(active);
+    return () => onActive(false);
+  }, [active, onActive]);
+  useEffect(() => {
+    if (state === "done") onSettled();
+  }, [state, onSettled]);
+
+  if (state === "failed" || unknown) {
+    return (
+      <span
+        role="alert"
+        className="rounded-full px-2.5 py-1 text-[11px] text-danger"
+        style={{ background: "color-mix(in oklab, var(--c-danger) 12%, transparent)" }}
+        title={failure?.error ?? undefined}
+      >
+        {unknown ? "still saving — check the panel" : `could not save${failure?.error ? `: ${failure.error}` : ""}`}
+      </span>
+    );
+  }
+  if (state === "done") {
+    return (
+      <span
+        className="rounded-full px-2.5 py-1 text-[11px]"
+        style={{ background: "color-mix(in oklab, var(--c-accent) 14%, transparent)", color: "var(--c-accent)" }}
+      >
+        saved {jobs.length} fact{jobs.length === 1 ? "" : "s"} to Walrus
+      </span>
+    );
+  }
+  return (
+    <span role="status" aria-live="polite" className="saving inline-flex items-center gap-2 rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
+      <span aria-hidden className="saving-dot size-[5px] rounded-full bg-accent" />
+      <span className="tabular-nums">{stageLabel(state)}… {seconds}s</span>
+    </span>
+  );
+}
+
 export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
   const router = useRouter();
   /*
@@ -53,8 +109,37 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
    * the entire session no matter what was saved. The route awaits its writes
    * before closing the stream, so by the time this fires the fact has landed.
    */
-  const { messages, input, handleInputChange, handleSubmit, status, append, error, reload } =
-    useChat({ api: "/api/chat", onFinish: () => router.refresh() });
+  /*
+   * A typed message must never vanish. The draft is mirrored to sessionStorage as
+   * it is typed, kept in `sent` while a request is in flight, and put back in the
+   * box (with the failed turn removed) if the request fails.
+   */
+  const DRAFT_KEY = "fuuud:draft";
+  const sent = useRef("");
+  const { messages, input, setInput, handleInputChange, handleSubmit, status, append, error, setMessages } =
+    useChat({
+      api: "/api/chat",
+      // The stream now closes as soon as the answer is done; saving is followed per job.
+      onFinish: () => router.refresh(),
+      onError: () => {
+        setMessages((prev) => (prev.at(-1)?.role === "user" ? prev.slice(0, -1) : prev));
+        if (sent.current) setInput(sent.current);
+      },
+    });
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) setInput((cur) => cur || saved);
+    } catch {}
+    // restore once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      if (input) sessionStorage.setItem(DRAFT_KEY, input);
+      else sessionStorage.removeItem(DRAFT_KEY);
+    } catch {}
+  }, [input]);
   const busy = status === "streaming" || status === "submitted";
 
   /*
@@ -67,10 +152,12 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
   const lastStored = annotationOf(lastAssistant?.annotations)?.stored;
   const writing = busy && Boolean(lastStored?.pending);
   const writeSeconds = useElapsed(writing);
+  const [jobsActive, setJobsActive] = useState(false);
   useEffect(() => {
-    announceSaving(writing);
+    announceSaving(writing || jobsActive);
     return () => announceSaving(false);
-  }, [writing]);
+  }, [writing, jobsActive]);
+  const refresh = useCallback(() => router.refresh(), [router]);
 
   // Which message's provenance is expanded. Chips are a summary; the full
   // stored line, distance and all, is one click away.
@@ -105,10 +192,10 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
       list scrolls: the composer below is a sibling, not a `sticky` child, so it
       cannot drift with the content or overlap the last reply.
     */
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-6">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-4 sm:px-6">
       {messages.length === 0 ? (
-        <div className="scroll-quiet flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-16">
-          <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-[-0.03em]">
+        <div className="scroll-quiet flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-8 sm:py-16">
+          <h1 className="font-display text-[32px] font-medium leading-[1.05] tracking-[-0.03em] text-balance sm:text-[44px]">
             What should you eat?
           </h1>
           <p className="mt-3 max-w-[46ch] text-[15px] leading-relaxed text-ink-muted">
@@ -120,7 +207,10 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
               <button
                 key={s}
                 type="button"
-                onClick={() => append({ role: "user", content: s })}
+                onClick={() => {
+                  sent.current = s;
+                  void append({ role: "user", content: s });
+                }}
                 className="chip"
               >
                 {s}
@@ -142,7 +232,7 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
             if (m.role === "user") {
               return (
                 <li key={m.id} className="flex justify-end">
-                  <p className="max-w-[78%] whitespace-pre-wrap rounded-[10px] bg-surface-hi px-4 py-3 text-[15px] leading-normal">
+                  <p className="max-w-[88%] whitespace-pre-wrap rounded-[10px] bg-surface-hi px-4 py-3 text-[15px] leading-normal sm:max-w-[78%]">
                     {m.content}
                   </p>
                 </li>
@@ -162,8 +252,8 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
                   style={{ background: "linear-gradient(140deg, var(--c-accent), color-mix(in oklab, var(--c-accent) 45%, #000))" }}
                 />
 
-                <div className="card min-w-0 flex-1 px-5 py-4">
-                  <p className="whitespace-pre-wrap text-[15px] leading-[1.65]">{m.content}</p>
+                <div className="card min-w-0 flex-1 px-4 py-3.5 sm:px-5 sm:py-4">
+                  <Markdown text={m.content} />
 
                   {recalled.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -236,6 +326,8 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
                         >
                           could not save this turn — why?
                         </button>
+                      ) : stored?.jobs?.length ? (
+                        <SaveChip jobs={stored.jobs} onSettled={refresh} onActive={setJobsActive} />
                       ) : stored?.written.length ? (
                         <span
                           className="rounded-full px-2.5 py-1 text-[11px]"
@@ -321,7 +413,9 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
         const needsKey = error.message.includes(NO_KEY_CODE);
         const text = needsKey
           ? error.message.split(`${NO_KEY_CODE}:`).pop()!.trim()
-          : error.message || "Something went wrong.";
+          : /failed to fetch|load failed|network ?error|networkerror/i.test(error.message)
+            ? "Lost the connection before the answer came back."
+            : error.message || "Something went wrong.";
 
         return (
           <p
@@ -339,9 +433,7 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
                 Add a model key
               </button>
             ) : (
-              <button type="button" onClick={() => reload()} className="chip">
-                Try again
-              </button>
+              <span className="text-ink-faint">Your message is back in the box.</span>
             )}
           </p>
         );
@@ -354,15 +446,20 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
         <div className="mb-3 shrink-0"><MemoryUnavailable failure={unavailable} compact /></div>
       )}
 
-      <form onSubmit={handleSubmit} className="shrink-0 bg-canvas pb-6 pt-3">
+      <form
+        onSubmit={(e) => {
+          sent.current = input;
+          handleSubmit(e);
+        }}
+        className="shrink-0 bg-canvas pb-4 pt-3 sm:pb-6">
         <div className="card px-3 pb-3 pt-3.5">
           <input
             value={input}
             onChange={handleInputChange}
             aria-label="Message"
             disabled={Boolean(unavailable)}
-            placeholder={unavailable ? "Your memory has to be readable before it can answer safely." : "Tell it about a condition, or just ask what to eat…"}
-            className="w-full bg-transparent px-2 pb-3 text-[15px] text-ink placeholder:text-ink-faint focus:outline-none"
+            placeholder={unavailable ? "Your memory has to be readable before it can answer safely." : "Ask, or tell it a condition…"}
+            className="w-full bg-transparent px-2 pb-3 text-base text-ink placeholder:text-ink-faint focus:outline-none sm:text-[15px]"
           />
           <div className="flex items-center justify-between gap-3">
             <span className="chip pointer-events-none">
@@ -377,7 +474,7 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
               type="submit"
               disabled={busy || !input.trim() || Boolean(unavailable)}
               aria-label="Send"
-              className="cta grid size-9 shrink-0 place-items-center rounded-full disabled:opacity-25"
+              className="cta grid size-11 shrink-0 place-items-center rounded-full disabled:opacity-25 sm:size-9"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />

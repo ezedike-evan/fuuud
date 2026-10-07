@@ -37,3 +37,11 @@ test("non-errors use the fallback", () => {
   assert.equal(friendlyError(null, "fallback"), "fallback");
   assert.equal(friendlyError(new Error(""), "fallback"), "fallback");
 });
+
+test("hitting the 20-key cap says what it is and where to fix it", () => {
+  for (const raw of ["MoveAbort(MoveLocation { module: account }, 2)", "ETooManyDelegateKeys", "Too many delegate keys"]) {
+    const msg = friendlyError(new Error(raw), "x");
+    assert.match(msg, /maximum of 20 keys/);
+    assert.match(msg, /Settings/);
+  }
+});

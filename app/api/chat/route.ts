@@ -27,6 +27,15 @@ export const maxDuration = 300;
  */
 const WRITE_REPORT_DEADLINE_MS = 10_000;
 
+/*
+ * Per fact, how long the turn waits for Walrus before handing the browser a job id.
+ * The relayer keeps working after we stop listening; the browser polls
+ * /api/memory/job and shows the real stages, like the Walrus Memory demo does.
+ * Holding the whole chat stream open for a 30-120s upload is what turned a slow
+ * write into a dropped connection, a "network error" and a lost draft.
+ */
+const WRITE_WAIT_MS = 6_000;
+
 const BASE_PROMPT = [
   "You are Fuuud, a cautious food and nutrition assistant for users in Nigeria.",
   "Suggest meals people actually eat here - jollof, ofada, moi moi, egusi, akamu, plantain, garden egg - never generic Western meal plans.",
@@ -241,6 +250,8 @@ type StoredReport = {
   /** Already in the record. Not a failure — the record was already right. */
   skipped: string[];
   failed: string | null;
+  /** Accepted by the relayer, not finished: the browser follows these. */
+  jobs?: { jobId: string; kind: string }[];
 };
 
 /**
@@ -251,6 +262,7 @@ type StoredReport = {
 async function persist(address: string, userTurn: string, asked: string): Promise<StoredReport> {
   const written: string[] = [];
   const skipped: string[] = [];
+  const jobs: { jobId: string; kind: string }[] = [];
   try {
     if (!userTurn.trim() || isOffTheRecord(userTurn)) return { written, skipped, failed: null };
     const facts = await extractFacts(userTurn, asked);
@@ -272,18 +284,21 @@ async function persist(address: string, userTurn: string, asked: string): Promis
     }
 
     for (const fact of facts) {
-      const outcome = await rememberFact(address, fact.kind, fact.text, { userTurn });
-      if (outcome.status === "written") written.push(`${fact.kind}: ${fact.text}`);
+      const outcome = await rememberFact(address, fact.kind, fact.text, { userTurn, waitMs: WRITE_WAIT_MS });
+      if (outcome.status === "written") {
+        written.push(`${fact.kind}: ${fact.text}`);
+        if (outcome.pending) jobs.push({ jobId: outcome.pending.jobId, kind: fact.kind });
+      }
       // A duplicate means the record was ALREADY right. Reporting that as
       // nothing-happened is what makes "it didn't remember" impossible to tell
       // apart from "it already knew".
       else if (outcome.reason === "duplicate") skipped.push(`${fact.kind}: ${fact.text}`);
     }
-    return { written, skipped, failed: null };
+    return { written, skipped, failed: null, ...(jobs.length ? { jobs } : {}) };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     console.error("[fuuud] memory write failed:", detail);
-    return { written, skipped, failed: detail };
+    return { written, skipped, failed: detail, ...(jobs.length ? { jobs } : {}) };
   }
 }
 

@@ -275,6 +275,10 @@ async function commit(namespace: string, stored: string, label: string, waitMs?:
   }
 }
 
+/** The namespace a fact of this kind lives in, for this person. Never taken from a request. */
+export const namespaceOfKind = (kind: string, address: string): string | undefined =>
+  Object.hasOwn(KIND_NAMESPACE, kind) ? KIND_NAMESPACE[kind as FactKind](address) : undefined;
+
 /** Where a previously accepted write has got to. Read-only. */
 export async function writeStatus(namespace: string, jobId: string) {
   const status = await getMemWal(namespace).getRememberStatus(jobId);

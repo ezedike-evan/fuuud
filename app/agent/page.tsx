@@ -5,6 +5,7 @@ import { recallSafety, recallPreferences, resolveConflicts } from "@/lib/memory-
 import AppShell from "@/components/app-shell";
 import { describeMemoryFailure, type MemoryFailure } from "@/lib/memory-errors.ts";
 import Chat from "@/components/chat";
+import AgentPanes from "@/components/agent-panes";
 import MemoryRail, { type RailFact } from "@/components/memory-rail";
 
 export const dynamic = "force-dynamic";
@@ -67,10 +68,11 @@ async function AgentPageInner() {
 
   return (
     <AppShell address={address} active="/agent" fixedViewport>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_328px] overflow-hidden">
-        <Chat unavailable={unavailable} />
-        <MemoryRail facts={facts} unavailable={unavailable} />
-      </div>
+      <AgentPanes
+        chat={<Chat unavailable={unavailable} />}
+        rail={<MemoryRail facts={facts} unavailable={unavailable} />}
+        factCount={facts.filter((f) => !f.superseded).length}
+      />
     </AppShell>
   );
 }

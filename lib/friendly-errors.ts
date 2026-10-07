@@ -25,6 +25,11 @@ export function friendlyError(error: unknown, fallback: string, network?: string
     );
   }
 
+  // The contract aborts add_delegate_key with ETooManyDelegateKeys (code 2) at 20 keys per account.
+  if (/ETooManyDelegateKeys|too many delegate keys|MoveAbort[^)]*account[^)]*,\s*2\)/i.test(raw)) {
+    return "Your account already holds the maximum of 20 keys (every browser, device and connected app uses one). Remove old ones in Settings, under Keys on your account, then try again.";
+  }
+
   const enoki = /Enoki API failed \(status: (\d+)\)/.exec(raw);
   if (enoki) {
     return (

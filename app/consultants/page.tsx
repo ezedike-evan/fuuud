@@ -27,7 +27,7 @@ async function ConsultantsPageInner() {
 
   return (
     <AppShell address={address} active="/consultants">
-      <div className="mx-auto w-full max-w-4xl px-14 py-10">
+      <div className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 lg:px-14 lg:py-10">
         <h1 className="font-display font-medium text-[40px] leading-[1.05] tracking-[-0.03em]">Practitioners</h1>
         {unavailable && <div className="mt-6"><MemoryUnavailable failure={unavailable} /></div>}
         <p className="mt-2.5 max-w-[60ch] text-[14.5px] leading-relaxed text-ink-muted">

@@ -169,7 +169,75 @@ export default function MealCalendar({ initial }: { initial: PlanWeek }) {
         </p>
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      {/* PHONE: one card per day. An eight-column week cannot be read at 390px, and the desktop cells hide
+          Remove / + Calendar until hover, which a touch screen never produces: here they are always visible. */}
+      <ol className="mt-6 flex flex-col gap-3 sm:hidden">
+        {week.dates.map((date) => {
+          const { weekday, day } = dayLabel(date);
+          return (
+            <li key={date} className="overflow-hidden rounded-[10px] border border-line">
+              <div className="flex items-baseline justify-between bg-surface px-4 py-2.5">
+                <p className="eyebrow">{weekday}</p>
+                <p className="font-mono text-[12px] tabular-nums text-ink-muted">{day}</p>
+              </div>
+              <ul className="divide-y divide-line-soft">
+                {SLOTS.map((slot) => {
+                  const meal = mealAt(date, slot);
+                  return (
+                    <li
+                      key={slot}
+                      className="flex items-start justify-between gap-3 px-4 py-3"
+                      style={meal && !meal.safe ? { background: "color-mix(in oklab, var(--c-danger) 9%, transparent)" } : undefined}
+                    >
+                      <div className="min-w-0">
+                        <p className="eyebrow">{slot}</p>
+                        {meal ? (
+                          <>
+                            <p className={`mt-1 text-[14px] leading-snug ${meal.safe ? "text-ink" : "text-danger"}`}>{meal.meal}</p>
+                            {!meal.safe && (
+                              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.05em] text-danger">
+                                {meal.flags.slice(0, 2).join(", ") || "clashes"}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="mt-1 text-[13px] text-ink-faint">Nothing planned</p>
+                        )}
+                      </div>
+                      {meal && (
+                        <div className="flex shrink-0 flex-col items-end">
+                          {meal.safe && (
+                            <a
+                              href={googleCalendarUrl(meal)}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              aria-label={`Add ${slot} on ${date} to Google Calendar`}
+                              className="flex min-h-10 items-center px-1 text-[12.5px] text-ink-muted underline underline-offset-2"
+                            >
+                              + Calendar
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => run(() => removeMeal(date, slot))}
+                            aria-label={`Remove ${slot} on ${date}`}
+                            className="flex min-h-10 items-center px-1 text-[12.5px] text-ink-faint hover:text-danger disabled:opacity-30"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="mt-8 hidden overflow-x-auto sm:block">
         <div className="grid min-w-[52rem] grid-cols-[86px_repeat(7,minmax(0,1fr))] gap-px rounded-[10px] border border-line bg-line">
           <div className="bg-surface px-3 py-2.5" />
           {week.dates.map((d) => {

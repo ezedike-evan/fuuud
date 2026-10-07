@@ -5,6 +5,7 @@ import { listMemory } from "@/app/actions/memory";
 import Connections from "@/components/connections";
 import McpAccess from "@/components/mcp-access";
 import ConnectedAgents from "@/components/connected-agents";
+import KeyManager from "@/components/key-manager";
 import { listConnectedApps } from "@/app/actions/connectors";
 import RevokeButton from "@/components/revoke-button";
 import AppShell from "@/components/app-shell";
@@ -73,7 +74,7 @@ async function SettingsPageInner() {
 
   return (
     <AppShell address={address} active="/settings">
-      <div className="mx-auto w-full max-w-5xl px-14 py-10">
+      <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-14 lg:py-10">
 
         <div className="flex flex-wrap items-end justify-between gap-10">
           <div>
@@ -103,7 +104,7 @@ async function SettingsPageInner() {
 
         {/* the ledger */}
         <div className="mt-8 overflow-hidden rounded-[10px] border border-line">
-          <div className="grid grid-cols-[104px_118px_minmax(0,1fr)_92px_78px] gap-[18px] border-b border-line bg-surface px-5 py-[11px]">
+          <div className="hidden grid-cols-[104px_118px_minmax(0,1fr)_92px_78px] gap-[18px] border-b border-line bg-surface px-5 py-[11px] sm:grid">
             {["Date", "Kind", "Fact", "Distance", ""].map((h, i) => (
               <span key={i} className="eyebrow">{h}</span>
             ))}
@@ -118,16 +119,16 @@ async function SettingsPageInner() {
               {active.map((r, i) => (
                 <div
                   key={`${r.date}-${r.claim}-${i}`}
-                  className="grid grid-cols-[104px_118px_minmax(0,1fr)_92px_78px] items-center gap-[18px] border-b border-line-soft px-5 py-[15px]"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b border-line-soft px-4 py-3.5 sm:grid-cols-[104px_118px_minmax(0,1fr)_92px_78px] sm:gap-[18px] sm:px-5 sm:py-[15px]"
                 >
                   <span className="font-mono text-[12.5px] text-ink-muted">{r.date}</span>
                   <span
-                    className="font-mono text-[10.5px] uppercase tracking-[0.05em]"
+                    className="justify-self-end font-mono text-[10.5px] uppercase tracking-[0.05em] sm:justify-self-start"
                     style={{ color: KIND_COLOR[r.kind] ?? "var(--c-ink-muted)" }}
                   >
                     {r.kind}
                   </span>
-                  <span className="fact min-w-0 break-words">{r.claim}</span>
+                  <span className="fact order-none col-span-2 min-w-0 break-words sm:col-span-1">{r.claim}</span>
                   <span className="flex items-baseline gap-2 font-mono text-xs tabular-nums text-ink-faint">
                     {r.distance.toFixed(3)}
                     {r.blobId && (
@@ -173,6 +174,8 @@ async function SettingsPageInner() {
           <Connections />
 
           {connected.enabled && <ConnectedAgents address={address} initial={connected.apps} error={connected.error} />}
+
+          <KeyManager address={address} />
 
           <McpAccess address={address} />
 

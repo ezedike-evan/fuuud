@@ -19,7 +19,7 @@ async function SetupPageInner({ searchParams }: { searchParams: Promise<{ refuse
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-10 px-6">
       <Link href="/"><Wordmark size={28} /></Link>
-      <MemorySetup address={address} refused={refused} />
+      <MemorySetup address={address} refused={refused} staleKey={refused ? currentScope()?.creds?.delegatePublicKey : undefined} />
     </div>
   );
 }

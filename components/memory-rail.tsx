@@ -42,7 +42,7 @@ export default function MemoryRail({ facts, unavailable }: { facts: RailFact[]; 
       note stay put; only the list of facts scrolls, so a person with thirty
       stored facts sees the same layout as one with three.
     */
-    <aside className="flex h-full min-h-0 flex-col gap-5 overflow-hidden border-l border-line-soft bg-recess px-6 py-8">
+    <aside className="flex h-full min-h-0 flex-col gap-5 overflow-hidden bg-recess px-4 py-5 sm:px-6 lg:border-l lg:border-line-soft lg:py-8">
       <div className="flex shrink-0 items-baseline justify-between">
         <span className="eyebrow">What it knows</span>
         <span className="font-mono text-[11px] text-ink-faint">{active.length}</span>

@@ -7,6 +7,9 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { createAccount, addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
 import { friendlyError } from "@/lib/friendly-errors";
+import { deviceLabel } from "@/lib/delegate-keys";
+import { removeKeyOnchain } from "@/lib/remove-key";
+import KeyManager from "./key-manager";
 
 const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const CHAIN = `sui:${NETWORK}` as const;
@@ -27,13 +30,15 @@ const LABEL: Record<Step, string> = {
  * on it. Nothing here is signed by the server. The delegate key is the only
  * secret that leaves the browser, and it is the one you can revoke.
  */
-export default function MemorySetup({ address, refused = false }: { address: string; refused?: boolean }) {
+export default function MemorySetup({ address, refused = false, staleKey }: { address: string; refused?: boolean; staleKey?: string }) {
   const [wallet, setWallet] = useState<EnokiWallet | null>(null);
   const [step, setStep] = useState<Step>("idle");
   // Checked on load: a misconfigured network/registry fails deep inside a wallet transaction with
   // "Object ... not found". Say so up front, in words, and do not offer a button that cannot work.
   const [misconfigured, setMisconfigured] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The account already holds the contract's maximum of 20 keys: nothing can be added until one is removed.
+  const [atCap, setAtCap] = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_ENOKI_API_KEY;
@@ -105,9 +110,20 @@ export default function MemorySetup({ address, refused = false }: { address: str
         created = true;
       }
 
+      // An existing account may already be full. The contract rejects the 21st key with an opaque Move abort,
+      // so say so first and offer the way out instead of letting the wallet transaction fail.
+      if (!created) {
+        const listed = await fetch("/api/memwal/keys", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (listed && Array.isArray(listed.keys) && listed.keys.length >= listed.max) {
+          setAtCap(true);
+          setStep("idle");
+          return;
+        }
+      }
+
       setStep("delegate");
       const delegate = await generateDelegateKey();
-      await addDelegateKey({ ...base, accountId, publicKey: delegate.publicKey, label: "Fuuud" });
+      await addDelegateKey({ ...base, accountId, publicKey: delegate.publicKey, label: deviceLabel(navigator.userAgent) });
 
       setStep("verify");
       const res = await fetch("/api/memwal/register", {
@@ -116,6 +132,12 @@ export default function MemorySetup({ address, refused = false }: { address: str
         body: JSON.stringify({ accountId, delegateKey: delegate.privateKey, delegatePublicKey: hex(delegate.publicKey), created }),
       });
       if (!res.ok) throw new Error(await res.text());
+
+      // Replacing a REFUSED key: take the dead one off the account so keys do not pile up toward the cap.
+      // Best effort and after registration: failing to tidy up must never undo a working setup.
+      if (refused && staleKey && wallet) {
+        await removeKeyOnchain({ wallet, address, accountId, publicKey: staleKey }).catch(() => {});
+      }
 
       setStep("done");
       // Bounded: a slow or failing lookup must never leave the person on a finished-looking page.
@@ -154,6 +176,15 @@ export default function MemorySetup({ address, refused = false }: { address: str
       >
         {LABEL[step]}
       </button>
+
+      {atCap && (
+        <div className="mt-5">
+          <p role="alert" className="mb-3 rounded-lg border border-danger-line px-3 py-2.5 text-[12.5px] leading-relaxed text-danger">
+            Your account already holds the maximum of 20 keys. Remove the ones you no longer use, then press the button again.
+          </p>
+          <KeyManager address={address} heading="Make room for this device" onBelowCap={() => setAtCap(false)} />
+        </div>
+      )}
 
       {refused && (
         <p role="status" className="mt-4 rounded-lg border border-warn-line px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">

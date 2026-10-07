@@ -9,6 +9,7 @@
  */
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { fromHex, normalizeSuiAddress, toHex } from "@mysten/sui/utils";
+import { parseDelegateKeys, type DelegateKey } from "./delegate-keys.ts";
 
 export type RelayerChain = { network: "testnet" | "mainnet"; grpcUrl: string; packageId: string };
 
@@ -62,4 +63,10 @@ export async function fetchOwnerOfAccount(client: SuiGrpcClient, accountId: stri
   const owner = (account.object.json as { owner?: string } | undefined)?.owner;
   if (!owner) throw new Error(`account ${accountId} has no readable owner field`);
   return normalizeSuiAddress(owner);
+}
+
+/** Every delegate key currently registered on an account, as the chain records them. */
+export async function fetchDelegateKeys(client: SuiGrpcClient, accountId: string): Promise<DelegateKey[]> {
+  const account = await client.getObject({ objectId: accountId, include: { json: true } });
+  return parseDelegateKeys((account.object.json as { delegate_keys?: unknown } | undefined)?.delegate_keys);
 }

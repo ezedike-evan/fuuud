@@ -32,16 +32,19 @@ export default function AppShell({
 }) {
   return (
     <div className={fixedViewport ? "flex h-dvh flex-col overflow-hidden" : "flex min-h-dvh flex-col"}>
-      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-6 px-7 py-4">
+      {/* Phone: brand and controls on one row, the nav on its own full-width row below. From sm up it is the
+          original three-column strip. Nothing here may exceed ~358px at 390px wide. */}
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-3 px-4 py-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-6 sm:px-7 sm:py-4">
         <Link href="/agent" className="justify-self-start"><Wordmark /></Link>
 
-        <nav className="segmented justify-self-center text-[13.5px]">
+        <nav className="segmented order-3 w-full text-[13.5px] sm:order-none sm:w-auto sm:justify-self-center">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               data-on={item.href === active}
               aria-current={item.href === active ? "page" : undefined}
+              className="flex-1 py-2.5 text-center sm:flex-none sm:py-[0.4375rem]"
             >
               {item.label}
             </Link>
@@ -50,7 +53,8 @@ export default function AppShell({
 
         <div className="flex items-center gap-2 justify-self-end">
           <ThemeToggle />
-          <VoiceToggle />
+          {/* Voice is not built yet; on a phone it only costs the space the account chip needs. */}
+          <div className="hidden sm:block"><VoiceToggle /></div>
           <ApiKeysMenu />
           <AccountChip address={address} />
         </div>

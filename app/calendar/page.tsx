@@ -16,7 +16,7 @@ async function CalendarPageInner() {
 
   return (
     <AppShell address={address} active="/calendar">
-      <div className="mx-auto w-full max-w-6xl px-14 py-10">
+      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-14 lg:py-10">
         <MealCalendar initial={week} />
       </div>
     </AppShell>
