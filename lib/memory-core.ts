@@ -115,7 +115,7 @@ export const PREFERENCE_QUERY =
   "who they cook for, meals rejected and symptoms after eating";
 
 /** Conditions, allergies and clearances — retrieved regardless of the question. */
-export const recallSafety = (address: string) => recallFrom(healthNs(address), SAFETY_QUERY);
+export const recallSafety = (address: string) => recallFrom(healthNs(address), SAFETY_QUERY, { floor: false });
 
 /** Standing preferences — likewise always relevant to a meal suggestion. */
 export const recallPreferences = (address: string) => recallFrom(feedbackNs(address), PREFERENCE_QUERY);
@@ -175,23 +175,30 @@ function warmOnce(namespace: string, memwal: ReturnType<typeof getMemWal>) {
   return run;
 }
 
-async function recallFrom(namespace: string, query: string): Promise<RecalledFact[]> {
+/*
+ * `floor: false` is for the health namespace. A relevance floor is a similarity guess, and
+ * an allergy is relevant to every question whether or not it resembles the query: in
+ * production a namespace holding eight indexed facts recalled none of them, because the
+ * stored lines sat past the floor from the fixed query. That namespace is small and its
+ * facts are all safety facts, so it is read whole (capped) and never filtered by distance.
+ */
+async function recallFrom(namespace: string, query: string, opts: { floor?: boolean } = {}): Promise<RecalledFact[]> {
   const memwal = getMemWal(namespace);
-  const floor = relevanceFloor();
+  const floor = opts.floor === false ? Number.POSITIVE_INFINITY : relevanceFloor();
 
   // The relayer rejects a blank query. `list_memory` and an empty opening turn
   // both reach here, so coerce rather than 400.
   const q = query.trim() || " ";
 
   const read = async () => {
-    const result = await withRelayerRetry(`recall ${namespace}`, () => memwal.recall({
-      query: q,
-      namespace,
-      limit: 10,
-      maxTokens: RECALL_TOKEN_BUDGET,
-      truncationStrategy: "high-relevance-only",
-      ...(Number.isFinite(floor) ? { maxDistance: floor } : {}),
-    }));
+    const result = await withRelayerRetry(`recall ${namespace}`, () => memwal.recall(
+      Number.isFinite(floor)
+        ? { query: q, namespace, limit: 10, maxTokens: RECALL_TOKEN_BUDGET, truncationStrategy: "high-relevance-only", maxDistance: floor }
+        : { query: q, namespace, limit: 25 },
+    ));
+    if (!result.results.length && memwalMode() === "live") {
+      console.warn(`[fuuud] recall ${namespace}: relayer returned 0 results (floor ${Number.isFinite(floor) ? floor : "none"})`);
+    }
     return result.results
       .filter((r) => r.distance < floor)
       .map((r) => ({ text: r.text, distance: r.distance, blobId: r.blob_id }));
