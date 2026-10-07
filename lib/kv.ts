@@ -13,8 +13,8 @@
  * losing reminders.
  */
 
-const url = () => (process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL)?.trim();
-const token = () => (process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN)?.trim();
+const url = () => process.env.UPSTASH_REDIS_REST_URL?.trim() || process.env.KV_REST_API_URL?.trim() || undefined;
+const token = () => process.env.UPSTASH_REDIS_REST_TOKEN?.trim() || process.env.KV_REST_API_TOKEN?.trim() || undefined;
 
 export const kvConfigured = () => Boolean(url() && token());
 
@@ -91,4 +91,51 @@ export async function kvSetMembers(key: string): Promise<string[]> {
   assertUsable();
   if (!kvConfigured()) return [...(mem.sets.get(key) ?? [])];
   return ((await cmd("SMEMBERS", key)) as string[]) ?? [];
+}
+
+/*
+ * ATOMIC OPERATIONS for the OAuth layer. An authorization code must be usable
+ * exactly once and a refresh token rotated exactly once; a GET followed by a DEL
+ * leaves a window where two requests both succeed.
+ */
+
+/** Set only if absent. Returns true if this call created it. */
+export async function kvSetNX(key: string, value: unknown, ttlSeconds: number): Promise<boolean> {
+  assertUsable();
+  const raw = JSON.stringify(value);
+  if (!kvConfigured()) {
+    const hit = mem.values.get(key);
+    if (hit && !(hit.exp && hit.exp < Date.now())) return false;
+    mem.values.set(key, { v: raw, exp: Date.now() + ttlSeconds * 1000 });
+    return true;
+  }
+  return (await cmd("SET", key, raw, "NX", "EX", ttlSeconds)) === "OK";
+}
+
+/** Read and delete in one step (GETDEL). Only one caller can ever receive the value. */
+export async function kvTake<T>(key: string): Promise<T | null> {
+  assertUsable();
+  if (!kvConfigured()) {
+    const hit = mem.values.get(key);
+    mem.values.delete(key);
+    if (!hit || (hit.exp && hit.exp < Date.now())) return null;
+    return JSON.parse(hit.v) as T;
+  }
+  const raw = (await cmd("GETDEL", key)) as string | null;
+  return raw ? (JSON.parse(raw) as T) : null;
+}
+
+/** Increment a counter that expires `ttlSeconds` after its FIRST increment. Returns the new count. */
+export async function kvIncr(key: string, ttlSeconds: number): Promise<number> {
+  assertUsable();
+  if (!kvConfigured()) {
+    const hit = mem.values.get(key);
+    const live = hit && !(hit.exp && hit.exp < Date.now());
+    const next = (live ? Number(JSON.parse(hit.v)) : 0) + 1;
+    mem.values.set(key, { v: String(next), exp: live ? hit.exp : Date.now() + ttlSeconds * 1000 });
+    return next;
+  }
+  const count = Number(await cmd("INCR", key));
+  if (count === 1) await cmd("EXPIRE", key, ttlSeconds);
+  return count;
 }

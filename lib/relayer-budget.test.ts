@@ -24,3 +24,10 @@ test("keys are metered independently", async () => {
   await acquire("b", POINTS.remember);
   assert.ok(Date.now() - t0 < 200);
 });
+
+test("a bounded wait throws RateLimited instead of hanging a tool call", async () => {
+  const { RateLimited } = await import("./relayer-budget.ts");
+  resetBudget();
+  for (let i = 0; i < 5; i++) await acquire("bounded", POINTS.remember);
+  await assert.rejects(() => acquire("bounded", POINTS.remember, { maxWaitMs: 500 }), (e: unknown) => e instanceof RateLimited && (e as { retryAfterMs: number }).retryAfterMs > 0);
+});

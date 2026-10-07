@@ -1,4 +1,4 @@
-import { createMemWal as getMemWal, memwalMode, withRelayerRetry } from "./memwal-client.ts";
+import { createMemWal as getMemWal, currentAccountKey, memwalMode, withRelayerRetry } from "./memwal-client.ts";
 import { healthNs, feedbackNs, planNs } from "./namespaces.ts";
 import {
   DUPLICATE_DISTANCE,
@@ -150,7 +150,10 @@ function relevanceFloor() {
 const warmed = new Map<string, Promise<void>>();
 
 function warmOnce(namespace: string, memwal: ReturnType<typeof getMemWal>) {
-  const existing = warmed.get(namespace);
+  // Keyed by ACCOUNT as well: an address that registers a new account must not
+  // inherit the "already warmed" mark of its previous one.
+  const key = `${currentAccountKey()}:${namespace}`;
+  const existing = warmed.get(key);
   if (existing) return existing;
 
   const run = withRelayerRetry(`restore ${namespace}`, () => memwal.restore(namespace, RESTORE_LIMIT), "analyze")
@@ -166,7 +169,7 @@ function warmOnce(namespace: string, memwal: ReturnType<typeof getMemWal>) {
       console.error(`[fuuud] restore failed for ${namespace}`, error);
     });
 
-  warmed.set(namespace, run);
+  warmed.set(key, run);
   return run;
 }
 
@@ -222,9 +225,55 @@ async function recallFrom(namespace: string, query: string): Promise<RecalledFac
   return [...(await read()), ...tombstones];
 }
 
+/**
+ * A write the relayer accepted but had not finished when we stopped waiting. It is
+ * NOT confirmed: only `done` means the fact is on Walrus and indexed.
+ */
+export type PendingJob = { jobId: string };
+
 export type WriteOutcome =
   | { status: "skipped"; reason: "off-the-record" | "duplicate"; existing?: string }
-  | { status: "written"; namespace: string; text: string; supersedes?: string };
+  | { status: "written"; namespace: string; text: string; supersedes?: string; pending?: PendingJob };
+
+/**
+ * Commit one line to Walrus.
+ *
+ * Default (the web app): rememberAndWait, because the very next recall must see
+ * the fact. With `waitMs` (the hosted MCP endpoint): submit, poll for up to that
+ * long, and if the relayer is still working hand back the job id instead of
+ * holding the caller past its own timeout. The idempotency key makes this safe:
+ * the job continues on the relayer whether or not we are still listening, and a
+ * model that retries lands on the same job instead of writing the fact twice.
+ */
+async function commit(namespace: string, stored: string, label: string, waitMs?: number): Promise<PendingJob | undefined> {
+  const memwal = getMemWal(namespace);
+  const idempotencyKey = idempotencyKeyFor(namespace, stored);
+
+  if (waitMs === undefined) {
+    await withRelayerRetry(label, () => memwal.rememberAndWait(stored, namespace, { timeoutMs: INDEX_TIMEOUT_MS, idempotencyKey }), "remember");
+    return undefined;
+  }
+
+  const job = await withRelayerRetry(label, () => memwal.rememberAsync(stored, namespace, { idempotencyKey }), "remember");
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    // Status polls are not budgeted: they are cheap reads of one job, and a
+    // budget wait here would eat the very time we are trying to bound.
+    const status = await memwal.getRememberStatus(job.job_id);
+    if (status.status === "done") return undefined;
+    if (status.status === "failed" || status.status === "not_found") {
+      throw new Error(`The write did not complete (${status.status}${status.error ? `: ${status.error}` : ""}).`);
+    }
+    if (Date.now() + 2000 >= deadline) return { jobId: job.job_id };
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+}
+
+/** Where a previously accepted write has got to. Read-only. */
+export async function writeStatus(namespace: string, jobId: string) {
+  const status = await getMemWal(namespace).getRememberStatus(jobId);
+  return { state: status.status, error: status.error };
+}
 
 /**
  * The only write path.
@@ -236,7 +285,7 @@ export async function rememberFact(
   address: string,
   kind: FactKind,
   text: string,
-  opts: { userTurn?: string } = {},
+  opts: { userTurn?: string; waitMs?: number } = {},
 ): Promise<WriteOutcome> {
   if (opts.userTurn && isOffTheRecord(opts.userTurn)) {
     return { status: "skipped", reason: "off-the-record" };
@@ -297,22 +346,16 @@ export async function rememberFact(
   // finishes, and the very next recall would miss the fact we just wrote.
   //
   // The idempotency key makes the duplicate check above hold even when the
-  // network lies to us — a timeout after the server accepted the job collapses
+  // network lies to us - a timeout after the server accepted the job collapses
   // onto that job instead of writing the claim a second time.
-  await withRelayerRetry(`write ${namespace}`, () =>
-    memwal.rememberAndWait(stored, namespace, {
-      timeoutMs: INDEX_TIMEOUT_MS,
-      idempotencyKey: idempotencyKeyFor(namespace, stored),
-    }),
-    "remember",
-  );
+  const pending = await commit(namespace, stored, `write ${namespace}`, opts.waitMs);
 
-  return { status: "written", namespace, text: stored, supersedes };
+  return { status: "written", namespace, text: stored, supersedes, ...(pending ? { pending } : {}) };
 }
 
 export type ForgetOutcome =
   | { status: "not-found" }
-  | { status: "retracted"; namespace: string; tombstone: string; target: string };
+  | { status: "retracted"; namespace: string; tombstone: string; target: string; pending?: PendingJob };
 
 /**
  * RETRACT a fact. There is no delete in the SDK, so this writes a tombstone
@@ -327,7 +370,7 @@ export type ForgetOutcome =
  * thing", not "forget the allergy in kitchen:health". So both namespaces are
  * searched and the tombstone lands wherever the claim actually lives.
  */
-export async function forgetFact(address: string, text: string): Promise<ForgetOutcome> {
+export async function forgetFact(address: string, text: string, opts: { waitMs?: number } = {}): Promise<ForgetOutcome> {
   const namespaces = [healthNs(address), feedbackNs(address)];
 
   /*
@@ -374,19 +417,14 @@ export async function forgetFact(address: string, text: string): Promise<ForgetO
   if (!hit) return { status: "not-found" };
 
   const tombstone = formatTombstone(hit.nearest.text);
-  await withRelayerRetry(`retract ${hit.namespace}`, () =>
-    getMemWal(hit.namespace).rememberAndWait(tombstone, hit.namespace, {
-      timeoutMs: INDEX_TIMEOUT_MS,
-      idempotencyKey: idempotencyKeyFor(hit.namespace, tombstone),
-    }),
-    "remember",
-  );
+  const pending = await commit(hit.namespace, tombstone, `retract ${hit.namespace}`, opts.waitMs);
 
   return {
     status: "retracted",
     namespace: hit.namespace,
     tombstone,
     target: hit.nearest.text,
+    ...(pending ? { pending } : {}),
   };
 }
 

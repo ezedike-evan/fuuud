@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { hasPending } from "@/lib/oauth/pending.ts";
 import Wordmark from "@/components/wordmark";
 import SignIn from "@/components/sign-in";
 
@@ -13,7 +14,7 @@ const PROMISES = [
 ];
 
 export default async function SignInPage() {
-  if (await getOwnerAddress()) redirect("/agent");
+  if (await getOwnerAddress()) redirect((await hasPending()) ? "/oauth/consent" : "/agent");
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">

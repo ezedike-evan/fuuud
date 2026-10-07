@@ -66,20 +66,20 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
   groq: {
     label: "Groq",
     env: "GROQ_API_KEY",
-    chat: "llama-3.3-70b-versatile",
+    chat: "openai/gpt-oss-120b",
     console: "https://console.groq.com/keys",
     hint: "gsk_…",
+    // Groq's production models. gpt-oss-120b is the default: the write gate
+    // needs a model that follows a long, rule-heavy schema prompt, and it is one
+    // of the models Groq can hold to a strict JSON schema (the installed
+    // @ai-sdk/groq does not ask for strict mode yet, so today it is best-effort
+    // JSON checked by zod). Preview models are
+    // left out on purpose - Groq says they are for evaluation only.
     models: [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant",
-      "meta-llama/llama-4-scout-17b-16e-instruct",
-      "meta-llama/llama-4-maverick-17b-128e-instruct",
       "openai/gpt-oss-120b",
       "openai/gpt-oss-20b",
-      "moonshotai/kimi-k2-instruct",
-      "qwen/qwen3-32b",
-      "deepseek-r1-distill-llama-70b",
-      "gemma2-9b-it",
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant",
     ],
   },
 };
@@ -88,7 +88,7 @@ export const PROVIDERS: Record<Provider, ProviderInfo> = {
  * Preference order when several keys are present and none is pinned. Anthropic
  * first because the extraction step asks for strict JSON against a schema and
  * Claude is reliable at it; Groq last only because it is the newest arrival,
- * not because it is worse — any of these work, which is the point.
+ * not because it is worse - any of these work, which is the point.
  */
 export const ORDER: Provider[] = ["anthropic", "openai", "google", "xai", "groq"];
 

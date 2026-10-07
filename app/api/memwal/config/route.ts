@@ -5,7 +5,7 @@
  * /config, so it is the one value that has to be configured.
  */
 export async function GET() {
-  const server = process.env.MEMWAL_SERVER_URL ?? "https://relayer-staging.memory.walrus.xyz";
+  const server = process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz";
   const registryId = process.env.MEMWAL_REGISTRY_ID?.trim();
   if (!registryId) return new Response("MEMWAL_REGISTRY_ID is not set on the server.", { status: 503 });
 
@@ -18,6 +18,7 @@ export async function GET() {
       packageId: process.env.MEMWAL_PACKAGE_ID?.trim() || cfg.packageId,
       registryId,
       network: cfg.network ?? "testnet",
+      relayerUrl: server,
       grpcUrl: cfg.suiGrpcUrl ?? null,
     });
   } catch (error) {

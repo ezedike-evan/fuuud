@@ -3,6 +3,9 @@ import { getOwnerAddress } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { listMemory } from "@/app/actions/memory";
 import Connections from "@/components/connections";
+import McpAccess from "@/components/mcp-access";
+import ConnectedAgents from "@/components/connected-agents";
+import { listConnectedApps } from "@/app/actions/connectors";
 import RevokeButton from "@/components/revoke-button";
 import AppShell from "@/components/app-shell";
 import ForgetButton from "@/components/forget-button";
@@ -52,6 +55,8 @@ export default async function SettingsPage() {
     health: empty,
     feedback: empty,
   }));
+
+  const connected = await listConnectedApps().catch(() => ({ enabled: false, apps: [], error: undefined as string | undefined }));
 
   const active = [...toRows(health.active), ...toRows(feedback.active)];
   const superseded = [...toRows(health.superseded), ...toRows(feedback.superseded)];
@@ -155,6 +160,10 @@ export default async function SettingsPage() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Connections />
+
+          {connected.enabled && <ConnectedAgents address={address} initial={connected.apps} error={connected.error} />}
+
+          <McpAccess address={address} />
 
           <section className="rounded-[10px] border border-warn-line px-5 py-[18px]" style={{ background: "color-mix(in oklab, var(--c-warn) 5%, transparent)" }}>
             <h2 className="mb-2.5 flex items-center gap-2.5 text-sm font-medium">

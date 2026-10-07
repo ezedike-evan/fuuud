@@ -67,7 +67,7 @@ try {
     protocolVersion: "2024-11-05", capabilities: {},
     clientInfo: { name: "kitchen-memory-probe", version: "1" },
   });
-  check("handshake", init.result?.serverInfo?.name === "kitchen-memory", init.result?.protocolVersion);
+  check("handshake", init.result?.serverInfo?.name === "fuuud", init.result?.protocolVersion);
 
   child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
 
@@ -129,7 +129,7 @@ try {
     name: "forget_fact", arguments: { fact: "a shellfish thing nobody mentioned" },
   });
   check("forget_fact retracts nothing when nothing matches",
-    first(missing).includes("nothing to retract"), line(first(missing)));
+    first(missing).includes("No stored fact matches"), line(first(missing)));
 
   const forgot = await call("tools/call", { name: "forget_fact", arguments: { fact: "groundnuts - hives" } });
   check("forget_fact retracts the stored allergy",

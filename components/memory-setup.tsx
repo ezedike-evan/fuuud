@@ -7,7 +7,7 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { createAccount, addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
 
-const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK ?? "testnet") as "testnet" | "mainnet";
+const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const CHAIN = `sui:${NETWORK}` as const;
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
@@ -30,8 +30,6 @@ export default function MemorySetup({ address }: { address: string }) {
   const [wallet, setWallet] = useState<EnokiWallet | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [existing, setExisting] = useState("");
-  const [needsExisting, setNeedsExisting] = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_ENOKI_API_KEY;
@@ -74,21 +72,16 @@ export default function MemorySetup({ address }: { address: string }) {
       const signer = enokiSigner(wallet, account, CHAIN, suiClient);
       const base = { packageId: cfg.packageId, registryId: cfg.registryId, walletSigner: signer, suiNetwork: NETWORK, suiClient } as const;
 
-      let accountId = existing.trim();
+      // Reuse the account if this address already has one: the chain knows it, so
+      // clearing site data never strands a person on "already exists".
+      let accountId = "";
+      {
+        const found = await fetch("/api/memwal/account");
+        if (found.ok) accountId = ((await found.json()) as { accountId: string | null }).accountId ?? "";
+      }
       if (!accountId) {
         setStep("account");
-        try {
-          accountId = (await createAccount(base)).accountId;
-        } catch (e) {
-          // One account per address, enforced by the contract. If it already
-          // exists we cannot discover its id from here - ask for it.
-          const msg = e instanceof Error ? e.message : String(e);
-          if (/already|exist|abort|EAccountExists/i.test(msg)) {
-            setNeedsExisting(true);
-            throw new Error("This address already has an account. Paste its object id below and run again.");
-          }
-          throw e;
-        }
+        accountId = (await createAccount(base)).accountId;
       }
 
       setStep("delegate");
@@ -104,7 +97,8 @@ export default function MemorySetup({ address }: { address: string }) {
       if (!res.ok) throw new Error(await res.text());
 
       setStep("done");
-      window.location.href = "/agent";
+      const waiting = await fetch("/api/oauth/pending").then((r) => r.json()).catch(() => ({ pending: false }));
+      window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
       setStep("idle");
       setError(e instanceof Error ? e.message : "Setup failed");
@@ -129,15 +123,6 @@ export default function MemorySetup({ address }: { address: string }) {
           need any SUI.
         </p>
       </div>
-
-      {needsExisting && (
-        <input
-          value={existing}
-          onChange={(e) => setExisting(e.target.value)}
-          placeholder="0x… existing account object id"
-          className="mt-5 h-11 w-full rounded-lg border border-line-soft bg-transparent px-3 font-mono text-[12.5px]"
-        />
-      )}
 
       <button
         type="button"

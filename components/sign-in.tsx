@@ -14,7 +14,7 @@ import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
  * provided in the request" when it is missing or from another network — so
  * these three must never drift apart.
  */
-const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK ?? "testnet") as "testnet" | "mainnet";
+const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const CHAIN = `sui:${NETWORK}` as const;
 
 /**
@@ -114,7 +114,9 @@ export default function SignIn() {
       });
       if (!res.ok) throw new Error(await res.text());
 
-      window.location.href = "/agent";
+      // A connection request may be waiting (an AI app sent the person here to approve it).
+      const waiting = await fetch("/api/oauth/pending").then((r) => r.json()).catch(() => ({ pending: false }));
+      window.location.href = waiting.pending ? "/oauth/consent" : "/agent";
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed");
     } finally {

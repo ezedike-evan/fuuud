@@ -30,14 +30,32 @@ function used(spends: Spend[], now: number) {
   return spends.reduce((sum, s) => sum + s.points, 0);
 }
 
+/** Thrown when waiting for the allowance would exceed `maxWaitMs`. */
+export class RateLimited extends Error {
+  readonly code = "RATE_LIMITED";
+  // An explicit field, not a parameter property: this file is loaded by the stdio
+  // server under node's strip-only TypeScript mode, which rejects parameter properties.
+  readonly retryAfterMs: number;
+  constructor(retryAfterMs: number) {
+    super(`Rate limited by the Walrus Memory relayer. Try again in about ${Math.ceil(retryAfterMs / 1000)} seconds.`);
+    this.name = "RateLimited";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
 /**
  * Wait until `points` fit inside the window for this key, then book them.
  * `bucket` is whatever the relayer meters on - the delegate key.
+ *
+ * `maxWaitMs` bounds the wait. The web app is happy to wait out a minute; a tool
+ * call from an AI client is not - it has its own timeout and would show the
+ * person an opaque failure. Past the bound this throws RateLimited instead.
  */
-export async function acquire(bucket: string, points: number): Promise<void> {
+export async function acquire(bucket: string, points: number, opts: { maxWaitMs?: number } = {}): Promise<void> {
   const spends = windows.get(bucket) ?? [];
   windows.set(bucket, spends);
   const cost = Math.min(points, CEILING);
+  const started = Date.now();
 
   for (;;) {
     const now = Date.now();
@@ -45,8 +63,9 @@ export async function acquire(bucket: string, points: number): Promise<void> {
       spends.push({ at: now, points: cost });
       return;
     }
-    // Sleep until the oldest spend ages out, then look again.
-    await sleep(Math.max(250, WINDOW_MS - (now - spends[0].at) + 50));
+    const wait = Math.max(250, WINDOW_MS - (now - spends[0].at) + 50);
+    if (opts.maxWaitMs !== undefined && now - started + wait > opts.maxWaitMs) throw new RateLimited(wait);
+    await sleep(wait);
   }
 }
 

@@ -111,7 +111,7 @@ export async function withRelayerRetry<T>(label: string, fn: () => Promise<T>, o
   for (;;) {
     try {
       const bucket = delegateKey();
-      if (bucket) await acquire(bucket, POINTS[op]);
+      if (bucket) await acquire(bucket, POINTS[op], { maxWaitMs: currentScope()?.maxWaitMs });
       return await fn();
     } catch (error) {
       if (isThrottle(error) && throttleAttempt < AUTH_RETRY_DELAYS_MS.length) {
@@ -181,6 +181,16 @@ const delegateKey = () => {
   }
 };
 
+/** The MemWal account this request speaks for, or "mock". Used to key per-account caches. */
+export function currentAccountKey(): string {
+  try {
+    const r = resolve();
+    return r === "mock" ? "mock" : r.accountId;
+  } catch {
+    return "none";
+  }
+}
+
 export type MemWalMode = "live" | "mock";
 
 export function memwalMode(): MemWalMode {
@@ -249,7 +259,7 @@ export function createMemWal(namespace: string) {
   const client = MemWal.create({
     key: who.key,
     accountId: who.accountId,
-    serverUrl: process.env.MEMWAL_SERVER_URL ?? "https://relayer-staging.memory.walrus.xyz",
+    serverUrl: process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz",
     namespace,
   });
   live.set(id, client);

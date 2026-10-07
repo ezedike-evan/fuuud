@@ -110,9 +110,14 @@ export const RELEVANCE_DISTANCE = clampDistance(
   0.6,
 );
 
-function clampDistance(raw: string | undefined, fallback: number) {
+export function clampDistance(raw: string | undefined, fallback: number) {
+  // An EMPTY value must mean "unset". Number("") is 0, which would pass the range
+  // check and make the relevance floor 0: against a live relayer that drops every
+  // recalled fact, and the agent then behaves as if the person had no allergies.
+  // `.env.example` ships this variable blank, so this is the common case.
+  if (raw === undefined || raw.trim() === "") return fallback;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 2 ? n : fallback;
+  return Number.isFinite(n) && n > 0 && n <= 2 ? n : fallback;
 }
 
 /** Phrases meaning "do not persist anything from this turn". */

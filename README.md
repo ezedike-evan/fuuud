@@ -111,6 +111,54 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 Locally, skip the webhook: Settings polls `getUpdates` while you press Start.
 iOS only delivers web push once the site is added to the home screen.
 
+## Connect any AI app (hosted MCP)
+
+One hosted endpoint, `https://<your-domain>/api/mcp`, so you connect **once** and use your memory from
+Claude (web, desktop, iOS, Android), ChatGPT, Cursor, VS Code, Gemini CLI and any other client that
+speaks the MCP authorization spec (OAuth 2.1, PKCE S256, dynamic client registration). Unlike MemWal's
+generic hosted MCP, writes here go through **this** contract: dated facts, supersede stamping,
+retraction, and the deterministic `check_meal` allergen screen.
+
+**Add it.** In your AI app add a custom connector / remote MCP server with that URL and approve it when
+asked. Claude: Settings > Connectors > Add custom connector (paid plans; add it on the web and it then
+appears on the mobile apps, which cannot add new ones). The approval screen runs here: sign in, and your
+wallet creates a key for that app only (gas sponsored).
+
+**What you are trusting.**
+- The app gets its **own delegate key**, separate from the web app's. Disconnect it in Settings and it stops
+  at once; the same screen offers to remove the key from your account onchain.
+- To work while your browser is closed, **this server keeps that key, encrypted** (AES-GCM under
+  `OAUTH_SECRET`, in Upstash). Tokens never contain the key.
+- Read and write limits are enforced by this server; the key itself can do both on Walrus.
+- Whatever the app reads becomes part of your conversation with that AI service.
+- `forget_fact` refuses unless the model passes `confirm_user_asked: true`, because a web page the model reads
+  can otherwise tell it to retract your allergy. A write that is still saving is reported as **not yet
+  confirmed**, never as saved, and `list_memory` shows any that failed.
+- Access tokens last 1 hour, refresh tokens 30 days (rotating), and a connection is re-approved after 90 days.
+  You can have 5 connected apps. A replayed code or refresh token revokes the whole connection.
+
+**Operator setup** (see `.env.example`): `APP_URL`, `OAUTH_SECRET`, and a **read-write** Upstash token. Add more
+AI apps with `OAUTH_REDIRECT_ALLOW`. On Vercel: use a custom domain as the registered host, no apex-to-www
+redirect (the redirect drops the `Authorization` header), and turn **Deployment Protection off for `/api/mcp`,
+`/.well-known/*` and `/oauth/*`** (a protected URL answers with an HTML 401 that clients cannot follow), then
+redeploy. Preview URLs are protected by default, so test on production. Allow Anthropic's egress range
+`160.79.104.0/21` if you run a WAF.
+
+**Check it.**
+```bash
+curl -i https://<domain>/api/mcp                                   # 401 + WWW-Authenticate: Bearer resource_metadata="..."
+curl -i https://<domain>/.well-known/oauth-protected-resource      # resource == the connector URL
+curl -i https://<domain>/.well-known/oauth-authorization-server     # S256, registration_endpoint, iss
+pnpm oauth:e2e                                                      # the full flow over HTTP on the offline mock (70 checks)
+```
+`pnpm oauth:e2e` runs against a dev server started with `DEV_FAKE_ADDRESS` (see the header of
+`scripts/oauth-e2e.mts`): it covers discovery, registration, authorize, consent, tokens, every tool, refresh
+rotation, replay detection and revocation, but it **skips the wallet**, so the real approval screen and the
+live AI apps still need one manual run each.
+
+**Not covered yet.** Client ID Metadata Documents (ChatGPT prefers them but falls back to registration); the
+Gemini consumer app and other new surfaces (add their redirect URI with `OAUTH_REDIRECT_ALLOW`).
+
 ## Layout
 
 ```
@@ -199,14 +247,17 @@ already have:
 | OpenAI | `OPENAI_API_KEY` | `gpt-4o` / `gpt-4o-mini` |
 | Google | `GOOGLE_GENERATIVE_AI_API_KEY` | `gemini-2.5-pro` / `gemini-2.5-flash` |
 | xAI | `XAI_API_KEY` | `grok-3` / `grok-3-mini` |
+| Groq | `GROQ_API_KEY` | `openai/gpt-oss-120b` (one model for both jobs) |
 
 Set several and the first present wins, in that order; pin one with
 `KM_MODEL_PROVIDER`, and override model ids with `KM_CHAT_MODEL` /
 `KM_EXTRACT_MODEL`. A health agent someone else is meant to run should not force
 them to open an account with a company they have no relationship with.
 
-Two jobs, deliberately split: the chat model talks to the person, and a small
-fast model runs the write gate on every single turn.
+One model does both jobs by default: it talks to the person and it runs the write
+gate on every turn. They used to be split, and a gate running on a model nobody
+chose failed silently. Set `KM_EXTRACT_MODEL` only if you want a cheaper tier for
+the gate. On Groq the default is `openai/gpt-oss-120b`.
 
 ## Runs with no credentials at all
 
@@ -297,6 +348,9 @@ and allergies as JSON.
 
 ### Add it to Claude Code
 
+Get the three values from **Settings → Connect a coding agent (MCP)** in the web app:
+it registers a separate key for your agent on your own account and shows it once.
+
 ```json
 {
   "mcpServers": {
@@ -305,7 +359,6 @@ and allergies as JSON.
       "args": ["--experimental-strip-types", "mcp/server.mts"],
       "cwd": "/absolute/path/to/fuuud",
       "env": {
-        "KM_OWNER_ADDRESS": "0x...",
         "MEMWAL_PRIVATE_KEY": "...",
         "MEMWAL_ACCOUNT_ID": "0x...",
         "MEMWAL_SERVER_URL": "https://relayer-staging.memory.walrus.xyz"

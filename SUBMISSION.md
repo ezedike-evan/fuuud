@@ -31,28 +31,72 @@ it again.
 ## 2. What we built
 
 A nutrition assistant that already knows your health profile the moment you open
-it — because the profile is not in our database, it is on Walrus under your own
-address.
+it — because the profile is not in our database. It is on Walrus, in a Walrus
+Memory account **you** own, and this app is only a delegate you registered.
 
 Ask any nutrition chatbot for a meal plan twice and you type your conditions
 twice. For someone managing diabetes and a groundnut allergy, that is not an
 inconvenience. A forgotten allergy is a hazard, and re-declaring it every
 session is a hazard waiting for the one time you forget.
 
-Fuuud is three surfaces over one record:
+Fuuud is four surfaces over one record:
 
 - **The chat** recalls your conditions and allergies before generating, folds
   them into the system prompt as hard constraints, and screens what comes back.
 - **`/consultants`** ranks practitioners by the conditions it recalled, showing
   the reason next to each — visible proof that memory drives the app, not just
   the chat.
+- **`/calendar` and reminders** plan a week of meals, re-screen every meal
+  against the record each time the page loads, and can send a message before
+  each meal (Telegram, browser push) or export the week as an `.ics` file. A meal
+  that stops passing the screen is flagged, and its reminder is cancelled.
 - **An MCP server** exposes the same memory, through the *same contract*, to
   Claude Code, Cursor, or any other agent. A fact your coding agent learns is
   enforced by the web app's allergen screen, and vice versa, because the record
   lives on Walrus rather than inside either application.
 
-There is no database. Memory is the only store — which is what lets someone
-clone the repo and run it with three environment variables.
+**There is no database for your health record.** It lives only on Walrus. One
+small store (Upstash Redis) exists for reminders alone, and only once you connect
+a channel: a Telegram chat id, a push subscription, and the names and times of
+your upcoming meals. Disconnecting deletes it. A scheduler has no cookie and no
+delegate key, so it cannot read Walrus; that is why the store exists, and it is
+the one place a meal name sits in plain text on our side.
+
+### One connection for every AI app
+
+The same memory is reachable from any AI app that supports MCP connectors: one hosted endpoint
+(`/api/mcp`, Streamable HTTP) behind OAuth 2.1 (PKCE S256, dynamic client registration, resource
+indicators, an `iss` parameter). You approve it once; it then follows your account to your phone. It
+exposes our contract, not a generic memory API, so retraction, supersede stamping and the deterministic
+`check_meal` allergen screen apply wherever you use it.
+
+It was designed against a hostile review, and the decisions that came out of it are the point:
+each app gets its **own** delegate key (revocable independently of the web app); tokens carry no key
+material and the key is sealed server-side; only an allow-list of known AI apps may register, because an
+open registration would let a stranger redirect someone's grant to their own server; a consent decision
+is single-use; a replayed authorization code or refresh token revokes the whole connection; and because a
+web page the model reads can instruct it, `forget_fact` refuses without an explicit
+`confirm_user_asked` and a write that has not finished is reported as *not yet confirmed*, never as saved.
+`pnpm oauth:e2e` drives the whole flow over HTTP (70 checks). What it cannot cover is the wallet and the
+live AI apps themselves, which need a manual run, and we have not claimed otherwise.
+
+### Your own account, and gas you do not pay
+
+Each person creates **their own** Walrus Memory account at `/setup`. Their Enoki
+wallet signs `createAccount` and `addDelegateKey` in the browser; the server only
+ever receives the delegate key, sealed in an httpOnly cookie. This matters
+because namespaces organise a record but do not isolate it — any delegate key on
+an account decrypts every namespace on it — so the boundary between two people
+has to be the account, not a string prefix. One server-held key serving everyone
+would have made "you own your memory" false, so that mode is off by default
+(`MEMWAL_SHARED_ACCOUNT=1` turns it on for a single-tenant demo).
+
+Every account transaction is gas-sponsored: build the transaction kind, the
+relayer's `/sponsor` (Enoki) wraps it, the wallet signs, `/sponsor/execute` runs
+it. Nobody needs SUI. Settings can also issue a second, separate key for a coding
+agent (MCP), generated in the browser and shown once (the MCP server reads the
+owner address from the account on Sui, so there is no address to configure), so the same record works in
+Claude Code or Cursor without this app ever holding that key.
 
 The safety check is deliberately **not** the model's job. `check_meal` matches
 ingredient tokens against your recorded allergens (`kuli kuli` → peanut,
@@ -100,7 +144,7 @@ mechanical avoid-lists for the ones we have token tables for, plus an explicit
 warning naming any allergen no automatic screen can catch. With an empty
 profile it emits a refusal to name any dish at all.
 
-### The write gate: six kinds, and a bias toward keeping
+### The write gate: eleven kinds, and a bias toward keeping
 
 A fact is written only when the **user asserts it about their own body**:
 
@@ -109,18 +153,30 @@ A fact is written only when the **user asserts it about their own body**:
 | `condition` | `kitchen:health:<addr>` | "I'm diabetic" |
 | `allergy` | `kitchen:health:<addr>` | "groundnuts bring me out in hives" |
 | `clearance` | `kitchen:health:<addr>` | "no allergies that I know of" |
+| `observance` | `kitchen:health:<addr>` | "I don't eat pork", "halal only" |
 | `rejection` | `kitchen:feedback:<addr>` | "no, palm oil upsets me" |
 | `symptom` | `kitchen:feedback:<addr>` | "that gave me heartburn" |
 | `dislike` | `kitchen:feedback:<addr>` | "I'm not a vegetables person" |
+| `preference` | `kitchen:feedback:<addr>` | "I love pepper soup" |
+| `goal` | `kitchen:feedback:<addr>` | "cutting back on sugar" |
+| `household` | `kitchen:feedback:<addr>` | "I cook for four" |
+| `practical` | `kitchen:feedback:<addr>` | "twenty minutes on weeknights" |
 
-Three of those exist because of failures we watched happen in a live run:
+Planned meals are a twelfth kind, `plan`, in their own namespace
+(`kitchen:plan:<addr>`), because a meal the agent proposed is not a fact the
+person asserted about their body and must never be recalled into the chat prompt
+as one.
+
+Three of these exist because of failures we watched happen in a live run:
 
 - **`clearance`** — storing the *absence* matters as much as the presence.
   Without it, "nothing recalled" is ambiguous between *they told us they are
   clear* and *we never asked*, and the agent interrogates the same person every
   session.
-- **`dislike`** — a standing preference is durable; a craving is not. "I don't
-  eat pork" is kept, "not in the mood for rice" is not.
+- **`dislike` and `observance`** — a standing preference is durable; a craving is
+  not. "Not in the mood for rice" is not kept. "I don't eat pork" is kept as an
+  *observance*, not a dislike: a dislike is taste and can be worked around, an
+  observance is a rule the person does not intend to break.
 - **A suspected allergy is still an allergy.** "I *think* I might be allergic to
   groundnut" is written as `suspected groundnut allergy`, not discarded as
   speculation. The cost of keeping a suspicion that turns out to be nothing is
@@ -173,7 +229,7 @@ triggers one `restore()` pass for that namespace, pulling blobs back from
 Walrus, re-embedding and reinserting the rows, then retrying. Once per namespace
 per process, and never in front of a recall that already returned something.
 
-### Four SDK behaviours that shaped the whole design
+### Five SDK behaviours that shaped the whole design
 
 **`remember()` is append-only — it is not an upsert.** Writing the same fact
 twice yields two entries, and recall ranks by vector distance rather than
@@ -195,6 +251,13 @@ names — the design in §5.
 
 **The vector index is not the record.** Only Walrus is. An empty recall triggers
 one `restore()` warm-up per namespace before it is believed.
+
+**The relayer meters each delegate key at 30 points a minute** (remember 5,
+recall 1, analyze 10), and answers `401 AUTH_REJECTED` for everything once you
+pass it — indistinguishable from a bad key. A week of planned meals written one
+by one cost about 126 points and tripped it. Now a client-side budget
+(`lib/relayer-budget.ts`) spends the allowance deliberately, and a week is one
+bulk write instead of twenty-one single ones.
 
 We did not use `withMemWal({ autoSave: true })`. Auto-save extracts facts from
 every turn, which would happily persist "I fancy jollof tonight" into a medical
@@ -247,9 +310,15 @@ contract before you have a single credential.
 ### Bring your own key
 
 The agent is not tied to one model vendor. Set `ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` or `XAI_API_KEY` — whichever
-you already have — and it uses it; pin one with `KM_MODEL_PROVIDER` when several
-are present. Someone reproducing this should not have to open an account with a
+`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `XAI_API_KEY` or
+`GROQ_API_KEY` — whichever you already have — and it uses it; pin one with
+`KM_MODEL_PROVIDER` when several are present, or let each person paste their own
+key in Settings. The default on Groq is `openai/gpt-oss-120b`: one model both
+answers and runs the write gate, and the gate needs one that follows a long,
+rule-heavy schema prompt. (Groq can hold the `gpt-oss` models to a strict JSON
+schema; the installed `@ai-sdk/groq` does not request it yet, so today the gate's
+output is best-effort JSON checked by zod, and a malformed result writes
+nothing rather than something wrong.) Someone reproducing this should not have to open an account with a
 company they have no relationship with.
 
 ## 5. Honest notes
@@ -280,6 +349,20 @@ two deliberately broad recalls across both namespaces, and it is presented as
 what the agent can currently reach — with superseded and retracted entries in
 their own sections — rather than as a complete index of the record. For someone
 auditing what is stored about them, that distinction is the answer.
+
+**Reminders cannot re-screen at send time.** The scheduler (a GitHub Actions
+workflow pinging `/api/cron/reminders`) has no cookie and no delegate key, so it
+cannot read the record. The allergen screen runs when a reminder is scheduled and
+again on every plan read and every chat turn that stores a fact, so a new
+allergy cancels the matching reminders before the next run. A change made
+between runs can still be one interval behind, and GitHub's scheduled runs can
+start minutes late.
+
+**Mainnet is real.** On the production relayer, storage is paid for by the
+relayer and every account transaction is sponsored; the data is on a public
+network. Use a synthetic profile for any demo. The relayer, `NEXT_PUBLIC_SUI_NETWORK`
+and the Enoki key must all be on the same network, and `/setup` refuses with a
+message when they are not.
 
 **Sign-in.** Enoki zkLogin via `registerEnokiWallets` — the wallet signs a
 server-issued nonce, the server verifies it with

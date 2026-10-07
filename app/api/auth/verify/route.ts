@@ -21,7 +21,7 @@ import { readNonce, challengeText, issueSession, SESSION_COOKIE, NONCE_COOKIE } 
  * components/sign-in.tsx. A testnet proof checked against mainnet fails as an
  * invalid signature, which reads like a forged login rather than a wrong URL.
  */
-const SUI_NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK ?? "testnet") as "testnet" | "mainnet";
+const SUI_NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 const suiGraphql = new SuiGraphQLClient({
   url: `https://graphql.${SUI_NETWORK}.sui.io/graphql`,
   network: SUI_NETWORK,

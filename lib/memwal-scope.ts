@@ -30,6 +30,12 @@ export type MemwalCreds = {
 export type MemwalScope = {
   /** null = signed in, but has not created an account yet. */
   creds: MemwalCreds | null;
+  /**
+   * Longest a call may wait for the relayer's rate allowance. Unset for the web
+   * app, which can wait out a minute. The hosted MCP endpoint sets it so a tool
+   * call answers "rate limited" instead of hanging past the client's timeout.
+   */
+  maxWaitMs?: number;
 };
 
 const store = new AsyncLocalStorage<MemwalScope>();

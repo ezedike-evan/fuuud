@@ -7,7 +7,7 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { removeDelegateKey } from "@mysten-incubation/memwal/account";
 import { enokiSigner } from "@/lib/enoki-signer";
 
-const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK ?? "testnet") as "testnet" | "mainnet";
+const NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || "testnet") as "testnet" | "mainnet";
 
 /** Your wallet removes this app's delegate key onchain. Then the server forgets its copy. */
 export default function RevokeButton({ address }: { address: string }) {
