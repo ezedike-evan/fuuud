@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { NETWORK, useEnokiWallet } from "@/lib/use-enoki-wallet";
+import { mintDelegate } from "@/lib/mint-delegate";
+import { friendlyError } from "@/lib/friendly-errors";
+import { fitLabel } from "@/lib/delegate-keys";
 
 type Status = {
-  telegram: { configured: boolean; linked: boolean };
+  telegram: { configured: boolean; linked: boolean; chat: boolean };
   push: { configured: boolean; publicKey: string | null; subscribed: boolean };
   pending: number;
 };
@@ -21,7 +25,9 @@ const btn =
  * disconnecting both deletes the queue. What the server keeps, in plain words:
  * the chat id, the push subscription, and the names and times of upcoming meals.
  */
-export default function Connections() {
+export default function Connections({ address, devMock }: { address: string; devMock: boolean }) {
+  const wallet = useEnokiWallet();
+  const [startUrl, setStartUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +63,39 @@ export default function Connections() {
 
   const connectTelegram = () =>
     run("telegram", async () => {
-      const res = await fetch("/api/notify/telegram", { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
+      /*
+       * Chatting needs the bot to speak to your memory without this browser, so it gets its
+       * OWN key: made here, registered on your account by your wallet, handed to the server
+       * sealed. Disconnecting revokes it. Without a wallet (or on a server that cannot seal
+       * keys) the link is reminders-only.
+       */
+      let body: Record<string, unknown> = {};
+      if (devMock) body = { devMock: true };
+      else if (wallet) {
+        try {
+          body = await mintDelegate({
+            wallet,
+            address,
+            label: fitLabel("Fuuud Telegram"),
+            onStep: (step) => setNote(step),
+          });
+        } catch (e) {
+          throw new Error(friendlyError(e, "Could not create a key for the Telegram chat.", NETWORK));
+        }
+      }
+      setNote("Connecting…");
+      const res = await fetch("/api/notify/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error((() => { try { return (JSON.parse(text) as { error?: string }).error ?? text; } catch { return text; } })());
+      }
       const { url } = await res.json();
+      // Browsers block a popup opened after async work, so the link is also shown.
+      setStartUrl(url);
       window.open(url, "_blank", "noopener");
       setNote("Press Start in Telegram. This page checks for it every few seconds.");
       // The webhook may be doing the work already; polling covers local dev.
@@ -70,7 +106,8 @@ export default function Connections() {
           const next: Status = await s.json();
           setStatus(next);
           if (next.telegram.linked) {
-            setNote("Telegram connected.");
+            setStartUrl(null);
+            setNote(next.telegram.chat ? "Telegram connected. You can chat with Fuuud there." : "Telegram connected for reminders.");
             return;
           }
         }
@@ -150,7 +187,7 @@ export default function Connections() {
           <div>
             <p className="eyebrow">Telegram</p>
             <p className="mt-1.5 text-[12.5px] text-ink-muted">
-              {!status ? "Checking…" : !status.telegram.configured ? "Not set up on this server." : status.telegram.linked ? "Connected." : "A message before each planned meal."}
+              {!status ? "Checking…" : !status.telegram.configured ? "Not set up on this server." : status.telegram.linked ? (status.telegram.chat ? "Connected. Chat with Fuuud there, and get a message before each planned meal." : "Connected for reminders only. Disconnect and connect again to chat.") : "Chat with Fuuud and get a message before each planned meal."}
             </p>
           </div>
           {status?.telegram.configured &&
@@ -158,9 +195,14 @@ export default function Connections() {
               <button type="button" className={btn} disabled={busy !== null} onClick={unlinkTelegram}>Disconnect</button>
             ) : (
               <button type="button" className={btn} disabled={busy !== null} onClick={connectTelegram}>
-                {busy === "telegram" ? "Waiting for Start…" : "Connect Telegram"}
+                {busy === "telegram" ? "Working…" : "Connect Telegram"}
               </button>
             ))}
+          {startUrl && !status?.telegram.linked && (
+            <a href={startUrl} target="_blank" rel="noopener noreferrer" className={`${btn} text-center`}>
+              Open Telegram, then press Start
+            </a>
+          )}
         </div>
 
         <div className="flex flex-col justify-between gap-3 bg-canvas p-4">

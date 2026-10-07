@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { kvDel, kvGet, kvSet } from "./kv.ts";
+import { getGrant, revokeGrant } from "./oauth/grants.ts";
 import { updateRecord } from "./notify-store.ts";
 
 /**
@@ -13,7 +14,8 @@ import { updateRecord } from "./notify-store.ts";
  * the id proves which signed-in session asked for it.
  */
 
-const API = "https://api.telegram.org";
+// Overridable so a local stand-in for Telegram can capture replies in tests.
+const API = process.env.TELEGRAM_API_BASE?.trim() || "https://api.telegram.org";
 const LINK_TTL_S = 600;
 
 const botToken = () => process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -41,33 +43,63 @@ async function call<T>(method: string, body: Record<string, unknown>): Promise<T
 export const sendTelegramMessage = (chatId: string, text: string) =>
   call("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
 
-/** Deep link the person opens to connect their chat. */
-export async function createLink(address: string): Promise<string> {
+/** The chat that spoke last under this id, mapped back to the person and the grant it may use. */
+export type ChatBinding = { address: string; grantId?: string };
+export const bindingKey = (chatId: string) => `tgchat:${chatId}`;
+
+/** Deep link the person opens to connect their chat. `grantId` is the key the chat will speak to memory with. */
+export async function createLink(address: string, grantId?: string): Promise<string> {
   const id = crypto.randomBytes(16).toString("base64url");
-  await kvSet(`tglink:${id}`, address.toLowerCase(), LINK_TTL_S);
+  const link: ChatBinding = { address: address.toLowerCase(), ...(grantId ? { grantId } : {}) };
+  await kvSet(`tglink:${id}`, link, LINK_TTL_S);
   return `https://t.me/${botUsername()}?start=${id}`;
 }
 
-type Update = {
+export type Update = {
   update_id: number;
   message?: { text?: string; chat: { id: number; type: string } };
 };
+
+const START = /^\/start\s+([A-Za-z0-9_-]{16,64})$/;
+
+/** A `/start <code>` link-completion message, as opposed to ordinary chat. */
+export const isLinkStart = (update: Update) => Boolean(update.message?.text && START.test(update.message.text.trim()));
 
 /** One update from either the webhook or getUpdates. Returns the address linked, if any. */
 export async function handleUpdate(update: Update): Promise<string | null> {
   const msg = update.message;
   if (!msg?.text || msg.chat.type !== "private") return null;
-  const match = /^\/start\s+([A-Za-z0-9_-]{16,64})$/.exec(msg.text.trim());
+  const match = START.exec(msg.text.trim());
   if (!match) return null;
 
-  const address = await kvGet<string>(`tglink:${match[1]}`);
-  if (!address) {
+  const stored = await kvGet<ChatBinding | string>(`tglink:${match[1]}`);
+  // Links made before chat existed held just the address.
+  const link: ChatBinding | null = typeof stored === "string" ? { address: stored } : stored;
+  if (!link) {
     await sendTelegramMessage(String(msg.chat.id), "That link has expired. Open Settings in Fuuud and connect again.").catch(() => {});
     return null;
   }
   await kvDel(`tglink:${match[1]}`);
-  await updateRecord(address, (r) => ({ ...r, telegramChatId: String(msg.chat.id) }));
-  await sendTelegramMessage(String(msg.chat.id), "Connected. Fuuud will message you here before each planned meal.").catch(() => {});
+  const chatId = String(msg.chat.id);
+  const address = link.address;
+
+  // Linking again replaces the old chat key: the previous grant stops working.
+  let previous: string | undefined;
+  await updateRecord(address, (r) => {
+    previous = r.telegramGrantId;
+    const { telegramGrantId: _old, ...rest } = r;
+    return { ...rest, telegramChatId: chatId, ...(link.grantId ? { telegramGrantId: link.grantId } : {}) };
+  });
+  if (previous && previous !== link.grantId) await revokeGrant(previous).catch(() => {});
+  await kvSet(bindingKey(chatId), link, 90 * 86_400);
+
+  const live = link.grantId ? await getGrant(link.grantId) : null;
+  await sendTelegramMessage(
+    chatId,
+    live
+      ? "Connected. Ask me anything about food, or tell me an allergy or condition and I will remember it. I also message you before each planned meal. /memory shows what I know, /help lists commands."
+      : "Connected for reminders. Open Settings in Fuuud and connect Telegram again to chat with me here.",
+  ).catch(() => {});
   return address;
 }
 

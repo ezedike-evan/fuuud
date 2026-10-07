@@ -8,6 +8,8 @@ export type NotifyRecord = {
   /** Browser `getTimezoneOffset()`: minutes to add to local time to get UTC. */
   tz: number;
   telegramChatId?: string;
+  /** The grant (own delegate key) the Telegram chat speaks to memory with. Absent = reminders only. */
+  telegramGrantId?: string;
   push?: PushSubscription;
   reminders: Reminder[];
 };

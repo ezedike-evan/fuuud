@@ -3,6 +3,7 @@ import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
 import { listMemory } from "@/app/actions/memory";
 import Connections from "@/components/connections";
+import { devMockEnabled } from "@/lib/oauth/dev";
 import McpAccess from "@/components/mcp-access";
 import ConnectedAgents from "@/components/connected-agents";
 import KeyManager from "@/components/key-manager";
@@ -171,7 +172,7 @@ async function SettingsPageInner() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <Connections />
+          <Connections address={address} devMock={devMockEnabled()} />
 
           {connected.enabled && <ConnectedAgents address={address} initial={connected.apps} error={connected.error} />}
 

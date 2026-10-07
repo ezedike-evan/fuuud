@@ -173,6 +173,24 @@ export async function createGrant(input: {
   return grant;
 }
 
+/**
+ * A grant that is used by the server itself (the Telegram bot) has no OAuth code
+ * exchange to activate it, so it is activated at creation instead. Revocation still
+ * wins: the marker is checked before anything is read.
+ */
+export async function activateGrant(gid: string): Promise<Grant | null> {
+  const grant = await getGrant(gid);
+  if (!grant) return null;
+  if (grant.status === "active") return grant;
+  const active: Grant = { ...grant, status: "active" };
+  await kvSet(k.grant(gid), active, Math.max(1, Math.floor((grant.absExp - now()) / SECOND)));
+  if (await kvGet(k.revoked(gid))) {
+    await kvDel(k.grant(gid));
+    return null;
+  }
+  return active;
+}
+
 /** Kills the grant and every token under it. The onchain delegate key is separate: remove it with the wallet. */
 export async function revokeGrant(gid: string): Promise<void> {
   if (!GID.test(gid)) return;

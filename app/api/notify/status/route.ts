@@ -3,6 +3,7 @@ import { getRecord } from "@/lib/notify-store.ts";
 import { pollUpdates, telegramConfigured } from "@/lib/telegram.ts";
 import { pushConfigured, vapidPublicKey } from "@/lib/push.ts";
 import { buildPlanWeek } from "@/lib/plan-week.ts";
+import { getGrant } from "@/lib/oauth/grants.ts";
 
 /**
  * `?poll=1` also fetches Telegram updates first. That is the local-dev path (no
@@ -16,8 +17,9 @@ async function getHandler(req: Request) {
   if (poll && telegramConfigured()) await pollUpdates().catch((e) => console.error("[fuuud] telegram poll:", e));
 
   const record = await getRecord(address);
+  const chat = record?.telegramGrantId ? Boolean(await getGrant(record.telegramGrantId).catch(() => null)) : false;
   return Response.json({
-    telegram: { configured: telegramConfigured(), linked: Boolean(record?.telegramChatId) },
+    telegram: { configured: telegramConfigured(), linked: Boolean(record?.telegramChatId), chat },
     push: { configured: pushConfigured(), publicKey: vapidPublicKey() ?? null, subscribed: Boolean(record?.push) },
     pending: (record?.reminders ?? []).filter((r) => !r.sentAt).length,
     tz: record?.tz ?? null,

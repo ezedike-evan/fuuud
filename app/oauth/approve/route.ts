@@ -1,15 +1,9 @@
 import crypto from "node:crypto";
 
 import { appUrl } from "@/lib/app-url.ts";
-import { fetchAccountIdForOwner, grpcFor } from "@/lib/account-lookup.ts";
-import { inspectCached } from "@/lib/chain-config.ts";
-import { keysMatch } from "@/lib/ed25519.ts";
+import { intakeDelegate } from "@/lib/delegate-intake.ts";
 import { kvDel, kvIncr, kvSetNX } from "@/lib/kv.ts";
-import { currentScope } from "@/lib/memwal-scope.ts";
-import { verifyDelegate } from "@/lib/memwal-verify.ts";
-import { healthNs } from "@/lib/namespaces.ts";
 import { GrantLimitError, SUPPORTED_SCOPES, createGrant, mintCode, type OAuthScope } from "@/lib/oauth/grants.ts";
-import { devMockCreds, devMockEnabled } from "@/lib/oauth/dev.ts";
 import { json, notConfigured } from "@/lib/oauth/http.ts";
 import { clearPending, readPending } from "@/lib/oauth/pending.ts";
 import { readClient } from "@/lib/oauth/clients.ts";
@@ -18,7 +12,6 @@ import { getOwnerAddress, inScope } from "@/lib/session.ts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const HEX64 = /^[0-9a-fA-F]{64}$/;
 const APPROVALS_PER_HOUR = 10;
 
 const timingSafeEqual = (a: string, b: string) => {
@@ -91,37 +84,9 @@ async function postHandler(req: Request) {
   const chosen = Array.isArray(body.scopes) ? body.scopes.filter((s): s is OAuthScope => (SUPPORTED_SCOPES as readonly string[]).includes(s as string)) : [];
   const scopes = pending.scopes.filter((s) => s === "memory:read" || s === "offline_access" || chosen.includes(s));
 
-  let creds, publicKey: string;
-  if (devMockEnabled() && body.devMock === true) {
-    creds = devMockCreds(owner);
-    publicKey = "dev";
-  } else {
-    if (typeof body.publicKey !== "string" || typeof body.privateKey !== "string" || !HEX64.test(body.publicKey) || !HEX64.test(body.privateKey)) {
-      return json({ error: "invalid_request", message: "A connector key is required." }, 400);
-    }
-    if (!keysMatch(body.privateKey, body.publicKey)) return json({ error: "invalid_request", message: "That key pair does not match." }, 400);
-    // The web app's own key must never double as a connector key: they are meant to be revocable separately.
-    if (currentScope()?.creds?.delegatePublicKey.toLowerCase() === body.publicKey.toLowerCase()) {
-      return json({ error: "invalid_request", message: "Create a new key for this connection." }, 400);
-    }
-
-    const checked = await inspectCached();
-    if (!checked.ok) return json({ error: "server_error", message: checked.problem }, 503);
-    let accountId: string | null;
-    try {
-      accountId = await fetchAccountIdForOwner(grpcFor(checked.config), checked.config.registryId, owner);
-    } catch (error) {
-      console.error("[fuuud] account lookup failed:", error instanceof Error ? error.message : error);
-      return json({ error: "temporarily_unavailable", message: "Could not reach Sui. Try again." }, 503);
-    }
-    if (!accountId) return json({ error: "no_account", message: "Create your memory account first." }, 409);
-
-    const failure = await verifyDelegate({ accountId, delegateKey: body.privateKey, namespace: healthNs(owner) });
-    if (failure) return json({ error: "invalid_key", message: "The relayer does not accept that key yet. Wait a few seconds and try again." }, 400);
-
-    creds = { accountId, delegateKey: body.privateKey, delegatePublicKey: body.publicKey.toLowerCase(), owner: owner.toLowerCase() };
-    publicKey = body.publicKey.toLowerCase();
-  }
+  const intake = await intakeDelegate(owner, body);
+  if (!intake.ok) return json({ error: intake.error, message: intake.message }, intake.status);
+  const { creds, publicKey } = intake;
 
   // A consent decision is SINGLE-USE. The pending cookie is sealed and stateless, so
   // deleting it in the browser does not stop a replay of the same value, and a
