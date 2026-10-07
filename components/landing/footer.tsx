@@ -5,7 +5,7 @@ import Wordmark from "@/components/wordmark";
 export default function Footer() {
   return (
     <footer className="bg-recess">
-      <div className="mx-auto grid max-w-[1280px] gap-12 px-6 pb-11 pt-14 md:grid-cols-[1.25fr_1fr_1fr] md:px-12">
+      <div className="mx-auto grid max-w-[1280px] gap-12 px-6 pb-11 pt-14 md:grid-cols-[1.25fr_1fr_1fr_1fr] md:px-12">
         <div>
           <div className="flex items-center gap-3">
             <Wordmark size={30} label={false} />
@@ -25,18 +25,27 @@ export default function Footer() {
 
         <nav className="flex flex-col gap-3">
           <p className="eyebrow mb-1">Product</p>
-          <a href="#how" className="text-[13.5px] text-ink-muted hover:text-ink">How it works</a>
-          <a href="#what" className="text-[13.5px] text-ink-muted hover:text-ink">What it does</a>
+          <Link href="/#how" className="text-[13.5px] text-ink-muted hover:text-ink">How it works</Link>
+          <Link href="/#what" className="text-[13.5px] text-ink-muted hover:text-ink">What it does</Link>
           <Link href="/consultants" className="text-[13.5px] text-ink-muted hover:text-ink">Practitioners</Link>
           <Link href="/signin" className="text-[13.5px] text-ink-muted hover:text-ink">Sign in</Link>
         </nav>
 
         <nav className="flex flex-col gap-3">
           <p className="eyebrow mb-1">Your data</p>
-          <a href="#data" className="text-[13.5px] text-ink-muted hover:text-ink">What we store</a>
-          <a href="#faq" className="text-[13.5px] text-ink-muted hover:text-ink">Retracting a fact</a>
+          <Link href="/#data" className="text-[13.5px] text-ink-muted hover:text-ink">What we store</Link>
+          <Link href="/#faq" className="text-[13.5px] text-ink-muted hover:text-ink">Retracting a fact</Link>
           <Link href="/settings" className="text-[13.5px] text-ink-muted hover:text-ink">Revoking access</Link>
           <Link href="/settings" className="text-[13.5px] text-ink-muted hover:text-ink">What it remembers</Link>
+        </nav>
+
+        <nav aria-label="Guides and legal" className="flex flex-col gap-3">
+          <p className="eyebrow mb-1">Learn</p>
+          <Link href="/guides/allergy-safe-nigerian-meals" className="text-[13.5px] text-ink-muted hover:text-ink">Allergy-safe Nigerian meals</Link>
+          <Link href="/guides/private-health-memory" className="text-[13.5px] text-ink-muted hover:text-ink">How your memory stays private</Link>
+          <Link href="/guides/connect-claude-chatgpt-cursor" className="text-[13.5px] text-ink-muted hover:text-ink">Connect your AI app</Link>
+          <Link href="/privacy" className="text-[13.5px] text-ink-muted hover:text-ink">Privacy policy</Link>
+          <Link href="/terms" className="text-[13.5px] text-ink-muted hover:text-ink">Terms of use</Link>
         </nav>
       </div>
 

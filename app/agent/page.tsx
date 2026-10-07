@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import { getOwnerAddress, inScope } from "@/lib/session.ts";
 import { requireAccount } from "@/lib/require-account.ts";
@@ -81,3 +83,6 @@ async function AgentPageInner() {
 export default function AgentPage() {
   return inScope(AgentPageInner);
 }
+
+// Signed-in or transactional: never indexed (see lib/pages.ts PRIVATE_ROUTES).
+export const metadata: Metadata = { title: "Agent", ...NOINDEX };

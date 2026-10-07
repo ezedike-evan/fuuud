@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import Link from "next/link";
 import Wordmark from "@/components/wordmark";
 
@@ -29,3 +31,6 @@ export default async function OAuthErrorPage({ searchParams }: { searchParams: P
     </div>
   );
 }
+
+// Signed-in or transactional: never indexed (see lib/pages.ts PRIVATE_ROUTES).
+export const metadata: Metadata = { title: "Connection problem", ...NOINDEX };

@@ -7,11 +7,12 @@ import Wordmark from "@/components/wordmark";
 import ThemeToggle from "@/components/theme-toggle";
 
 const LINKS = [
-  { href: "#problem", label: "The problem" },
-  { href: "#how", label: "How it works" },
-  { href: "#what", label: "What it does" },
-  { href: "#data", label: "Your data" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#problem", label: "The problem" },
+  { href: "/#how", label: "How it works" },
+  { href: "/#what", label: "What it does" },
+  { href: "/#data", label: "Your data" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/guides", label: "Guides" },
 ];
 
 export default function Nav({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }) {

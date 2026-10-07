@@ -60,7 +60,8 @@ export default function AppShell({
         </div>
       </header>
 
-      {children}
+      {/* `contents` keeps the layout exactly as it was while giving the skip link a landmark to land on. */}
+      <main id="main" className="contents">{children}</main>
     </div>
   );
 }

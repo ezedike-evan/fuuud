@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOwnerAddress, inScope } from "@/lib/session.ts";
@@ -28,3 +30,6 @@ async function SetupPageInner({ searchParams }: { searchParams: Promise<{ refuse
 export default function SetupPage(props: { searchParams: Promise<{ refused?: string }> }) {
   return inScope(() => SetupPageInner(props));
 }
+
+// Signed-in or transactional: never indexed (see lib/pages.ts PRIVATE_ROUTES).
+export const metadata: Metadata = { title: "Set up your memory", ...NOINDEX };

@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOwnerAddress } from "@/lib/session.ts";
@@ -19,13 +21,13 @@ export default async function SignInPage() {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       <div
-        className="flex flex-col justify-between border-r border-line-soft bg-recess px-14 py-13"
+        className="flex flex-col justify-between border-r border-line-soft bg-recess px-6 py-10 sm:px-14 sm:py-13"
         style={{ background: "radial-gradient(50rem 34rem at 12% 8%, var(--c-accent-wash), transparent 62%), var(--c-recess)" }}
       >
         <Link href="/"><Wordmark size={28} /></Link>
 
         <div className="py-12">
-          <h1 className="max-w-[13ch] font-display font-medium text-[62px] leading-[1.02] tracking-[-0.03em]">
+          <h1 className="max-w-[13ch] font-display font-medium text-[40px] sm:text-[62px] leading-[1.02] tracking-[-0.03em]">
             Never declare your allergy <em className="italic text-accent">twice</em>.
           </h1>
           <p className="mt-[22px] max-w-[44ch] text-base leading-[1.62] text-ink-muted">
@@ -46,9 +48,17 @@ export default async function SignInPage() {
         </ul>
       </div>
 
-      <div className="flex flex-col justify-center px-16 py-13">
+      <main id="main" className="flex flex-col justify-center gap-8 px-6 py-12 sm:px-16 lg:py-13">
         <SignIn />
-      </div>
+        <p className="max-w-[44ch] text-[12.5px] leading-relaxed text-ink-faint">
+          By continuing you agree to the <Link href="/terms" className="underline underline-offset-2 hover:text-ink">terms</Link> and
+          have read the <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">privacy policy</Link>.
+          Fuuud gives food guidance, not medical advice.
+        </p>
+      </main>
     </div>
   );
 }
+
+// Signed-in or transactional: never indexed (see lib/pages.ts PRIVATE_ROUTES).
+export const metadata: Metadata = { title: "Sign in", ...NOINDEX };

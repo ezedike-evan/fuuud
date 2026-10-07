@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOwnerAddress, inScope } from "@/lib/session.ts";
@@ -45,3 +47,6 @@ async function ConsentPageInner() {
 export default function ConsentPage() {
   return inScope(ConsentPageInner);
 }
+
+// Signed-in or transactional: never indexed (see lib/pages.ts PRIVATE_ROUTES).
+export const metadata: Metadata = { title: "Connect an app", ...NOINDEX };

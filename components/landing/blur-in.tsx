@@ -1,11 +1,7 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
-
 /**
- * A heading that resolves word by word, the way a thought does. Each word is
- * its own inline-block so the line still wraps normally, and the whole thing
- * collapses to plain text under `prefers-reduced-motion`.
+ * A heading that resolves word by word. Words are separated by real spaces (not margins),
+ * so the text reads and is indexed as a sentence, and each word is an inline-block so the
+ * line still wraps normally. CSS only; see `.km-word` in globals.css.
  */
 export default function BlurIn({
   text,
@@ -16,22 +12,13 @@ export default function BlurIn({
   className?: string;
   as?: "h1" | "h2" | "h3";
 }) {
-  const still = useReducedMotion();
-  if (still) return <Tag className={className}>{text}</Tag>;
-
   return (
     <Tag className={className}>
-      {text.split(" ").map((word, i) => (
-        <motion.span
-          key={`${word}-${i}`}
-          className="mr-[0.26em] inline-block"
-          initial={{ filter: "blur(10px)", opacity: 0 }}
-          whileInView={{ filter: "blur(0px)", opacity: 1 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.42, delay: i * 0.05 }}
-        >
-          {word}
-        </motion.span>
+      {text.split(" ").map((word, i, all) => (
+        <span key={`${word}-${i}`}>
+          <span className="km-word" style={{ ["--i" as string]: i }}>{word}</span>
+          {i < all.length - 1 ? " " : ""}
+        </span>
       ))}
     </Tag>
   );

@@ -110,8 +110,7 @@
 
   /*
    * Motion is decoration here, never the thing that reveals content. Anything
-   * that only moves is stopped outright; the framer-motion pieces check
-   * useReducedMotion and render their final state instead.
+   * that only moves is stopped outright, which leaves the final state showing.
    */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -305,3 +304,59 @@
     .scroll-quiet { scroll-behavior: auto; }
   }
 }
+
+/*
+ * Scroll reveals, in CSS. They were a client-side animation library that held text at
+ * opacity 0 until the page hydrated, which delayed the first paint and hid content from
+ * anything that does not run scripts. These start from a visible end state: the keyframes
+ * only describe the way in, and `prefers-reduced-motion` (above) cuts them to nothing.
+ * Where the browser has scroll-driven animations, each block rises as it enters the view;
+ * elsewhere it rises once on load.
+ */
+@keyframes km-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes km-resolve {
+  from { opacity: 0; filter: blur(8px); }
+  to { opacity: 1; filter: blur(0); }
+}
+.km-reveal {
+  animation: km-rise 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation-delay: var(--d, 0s);
+}
+.km-word {
+  display: inline-block;
+  animation: km-resolve 0.42s ease-out both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@supports (animation-timeline: view()) {
+  .km-reveal {
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+    animation-delay: 0s;
+  }
+  .km-word {
+    animation-timeline: view();
+    animation-range: entry 0% entry 70%;
+    animation-delay: 0s;
+  }
+}
+
+/* Long-form pages (guides, privacy, terms): comfortable measure, clear hierarchy. */
+.km-prose { max-width: 68ch; font-size: 16px; line-height: 1.72; color: var(--c-ink); }
+.km-prose > * + * { margin-top: 1.1em; }
+.km-prose h2 { margin-top: 2.2em; font-family: var(--f-display); font-weight: 500; font-size: 26px; line-height: 1.15; letter-spacing: -0.02em; text-wrap: balance; scroll-margin-top: 90px; }
+.km-prose h3 { margin-top: 1.7em; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.km-prose p, .km-prose li { color: var(--c-ink-muted); text-wrap: pretty; }
+.km-prose strong { color: var(--c-ink); font-weight: 600; }
+.km-prose a { color: var(--c-accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--c-accent-line); }
+.km-prose a:hover { text-decoration-color: var(--c-accent); }
+.km-prose ul, .km-prose ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 0.55em; }
+.km-prose ul { list-style: disc; }
+.km-prose ol { list-style: decimal; }
+.km-prose li::marker { color: var(--c-ink-faint); }
+.km-prose code { font-family: var(--f-mono); font-size: 0.88em; background: var(--c-surface-hi); border: 1px solid var(--c-line-soft); border-radius: 6px; padding: 0.1em 0.4em; color: var(--c-ink); }
+.km-prose pre { font-family: var(--f-mono); font-size: 13px; line-height: 1.6; background: var(--c-recess); border: 1px solid var(--c-line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; color: var(--c-ink); }
+.km-prose pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.km-prose > h2:first-child { margin-top: 0; }
