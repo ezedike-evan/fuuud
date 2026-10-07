@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
-import { kvDel, kvGet, kvSet } from "./kv.ts";
+import { kvDel, kvGet, kvSet, kvSetNX } from "./kv.ts";
 import { getGrant, revokeGrant } from "./oauth/grants.ts";
 import { updateRecord } from "./notify-store.ts";
 
@@ -40,8 +40,28 @@ async function call<T>(method: string, body: Record<string, unknown>): Promise<T
   return json.result as T;
 }
 
-export const sendTelegramMessage = (chatId: string, text: string) =>
-  call("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
+export const sendTelegramMessage = (chatId: string, text: string, opts: { html?: boolean } = {}) =>
+  call("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...(opts.html ? { parse_mode: "HTML" } : {}) });
+
+/**
+ * The "/" menu next to the message box: Telegram lists these so nobody has to remember
+ * a command. Set once per process version (the flag key carries a version, bump it when
+ * the list changes) and best-effort - a failure here must never block a message.
+ */
+export const BOT_COMMANDS = [
+  { command: "memory", description: "What I know about you" },
+  { command: "help", description: "What I can do" },
+];
+const COMMANDS_VERSION = "v1";
+
+export async function ensureCommands(): Promise<void> {
+  try {
+    if (!(await kvSetNX(`tg:cmds:${COMMANDS_VERSION}`, 1, 86_400))) return;
+    await call("setMyCommands", { commands: BOT_COMMANDS });
+  } catch (error) {
+    console.error("[fuuud] could not set bot commands:", error instanceof Error ? error.message : error);
+  }
+}
 
 /** The chat that spoke last under this id, mapped back to the person and the grant it may use. */
 export type ChatBinding = { address: string; grantId?: string };
@@ -93,6 +113,7 @@ export async function handleUpdate(update: Update): Promise<string | null> {
   if (previous && previous !== link.grantId) await revokeGrant(previous).catch(() => {});
   await kvSet(bindingKey(chatId), link, 90 * 86_400);
 
+  void ensureCommands();
   const live = link.grantId ? await getGrant(link.grantId) : null;
   await sendTelegramMessage(
     chatId,

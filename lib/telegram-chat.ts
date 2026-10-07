@@ -10,8 +10,8 @@ import { runInScope } from "./memwal-scope.ts";
 import { NO_KEY_CODE } from "./providers.ts";
 import { credsOf, getGrant } from "./oauth/grants.ts";
 import { isDevMockCreds, devMockEnabled } from "./oauth/dev.ts";
-import { bindingKey, sendTelegramMessage, type ChatBinding, type Update } from "./telegram.ts";
-import { parseCommand, splitMessage, toPlain } from "./telegram-text.ts";
+import { bindingKey, ensureCommands, sendTelegramMessage, type ChatBinding, type Update } from "./telegram.ts";
+import { formatMemory, parseCommand, splitMessage, toPlain } from "./telegram-text.ts";
 
 /**
  * Chatting with Fuuud inside Telegram.
@@ -34,6 +34,9 @@ const POLL_MS = 2_000;
 const send = (chatId: string, text: string) =>
   Promise.all(splitMessage(toPlain(text)).map((part) => sendTelegramMessage(chatId, part))).then(() => undefined);
 
+const sendHtml = (chatId: string, html: string) =>
+  Promise.all(splitMessage(html).map((part) => sendTelegramMessage(chatId, part, { html: true }))).then(() => undefined);
+
 const typing = (chatId: string) => {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   if (!token) return Promise.resolve();
@@ -55,6 +58,7 @@ export async function handleChatUpdate(update: Update): Promise<void> {
   if (!msg?.text || msg.chat.type !== "private") return;
   const chatId = String(msg.chat.id);
   try {
+    void ensureCommands();
     await respond(update.update_id, chatId, msg.text);
   } catch (error) {
     console.error("[fuuud] telegram chat failed:", error instanceof Error ? error.message : error);
@@ -92,22 +96,21 @@ async function respond(updateId: number, chatId: string, text: string) {
 
   void typing(chatId);
   await runInScope({ creds: mock ? null : creds, maxWaitMs: 20_000 }, async () => {
-    if (command?.cmd === "memory") return void (await send(chatId, await describeMemory(binding.address)));
+    if (command?.cmd === "memory") return void (await describeMemory(chatId, binding.address));
     if (command) return void (await send(chatId, "I do not know that command. /help lists them."));
     await chatTurn(chatId, binding.address, text);
   });
 }
 
-async function describeMemory(address: string): Promise<string> {
+async function describeMemory(chatId: string, address: string) {
   let recalled;
   try {
     recalled = await recallAll(address, "everything I should know");
   } catch (error) {
-    return describeMemoryFailure(error).message;
+    return void (await send(chatId, describeMemoryFailure(error).message));
   }
   const { activeHealth, activeFeedback } = composeSystem(recalled.health, recalled.feedback);
-  const lines = [...activeHealth, ...activeFeedback].map((f) => `• ${f.text}`);
-  return lines.length ? `What I know about you:\n${lines.join("\n")}` : "I do not know anything about you yet. Tell me about any allergies or conditions.";
+  await sendHtml(chatId, formatMemory([...activeHealth, ...activeFeedback].map((f) => f.text)));
 }
 
 async function chatTurn(chatId: string, address: string, text: string) {

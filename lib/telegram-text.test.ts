@@ -25,3 +25,23 @@ test("splitMessage never exceeds the limit and loses no words", () => {
 test("a short message is one part", () => {
   assert.deepEqual(splitMessage("hello"), ["hello"]);
 });
+
+import { formatMemory } from "./telegram-text.ts";
+
+test("formatMemory groups by kind, formats dates and escapes", () => {
+  const out = formatMemory([
+    "2026-10-07 | allergy | groundnuts - hives",
+    "2026-10-06 | dislike | okra <script>",
+    "2026-10-05 | condition | type 2 diabetes - SUPERSEDES: old",
+    "2026-10-05 | mystery | something",
+  ]);
+  assert.match(out, /<b>🚫 Allergies<\/b>\n• groundnuts - hives <i>\(7 Oct 2026\)<\/i>/);
+  assert.match(out, /okra &lt;script&gt;/);
+  assert.ok(!out.includes("SUPERSEDES"));
+  assert.match(out, /<b>📝 Other<\/b>/);
+  assert.ok(out.indexOf("Allergies") < out.indexOf("Conditions"));
+});
+
+test("formatMemory with nothing stored says so", () => {
+  assert.match(formatMemory([]), /do not know anything/);
+});
