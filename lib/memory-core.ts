@@ -117,8 +117,14 @@ export const PREFERENCE_QUERY =
 /** Conditions, allergies and clearances — retrieved regardless of the question. */
 export const recallSafety = (address: string) => recallFrom(healthNs(address), SAFETY_QUERY, { floor: false });
 
-/** Standing preferences — likewise always relevant to a meal suggestion. */
-export const recallPreferences = (address: string) => recallFrom(feedbackNs(address), PREFERENCE_QUERY);
+/**
+ * Standing preferences: dislikes, likes, goals, household, kitchen limits. Read whole, with no relevance
+ * floor, exactly like the health namespace: a short stored line such as "dislike | fish" sits far from a
+ * long fixed query, so a floor hid it, and the ledger, the memory panel, /memory and the prompt all showed
+ * a record without it while it was safely on Walrus. The plan lives in its own namespace, so this one is
+ * small and every line in it is meant to be seen.
+ */
+export const recallPreferences = (address: string) => recallFrom(feedbackNs(address), PREFERENCE_QUERY, { floor: false });
 
 /** Scheduled meals. A stable query: a plan is never "relevant" by similarity. */
 export const recallPlan = (address: string) =>

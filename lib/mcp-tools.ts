@@ -14,7 +14,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import {
-  recallHealth, recallFeedback, rememberFact, forgetFact, resolveConflicts,
+  recallHealth, recallFeedback, recallSafety, recallPreferences, rememberFact, forgetFact, resolveConflicts,
   claimsOfKind, isOffTheRecord, writeStatus, type RecalledFact,
 } from "./memory-core.ts";
 import { dropReceipts, listReceipts, recordPending } from "./pending-writes.ts";
@@ -310,8 +310,9 @@ export function registerTools(server: McpServer, ctx: ToolContext) {
       if (!can("memory:read")) return denied("memory:read");
       try {
         const [h, f] = await Promise.all([
-          recallHealth(owner, "conditions, allergies and foods to avoid"),
-          recallFeedback(owner, "rejected meals and reported symptoms"),
+          // The full standing record, not a similarity search for two phrases: an audit must not miss a stored line.
+          recallSafety(owner),
+          recallPreferences(owner),
         ]);
         const H = resolveConflicts(h);
         const F = resolveConflicts(f);

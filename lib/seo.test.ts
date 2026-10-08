@@ -95,3 +95,11 @@ test("robots disallows every private route and keeps OAuth discovery crawlable",
   assert.ok(robots.includes("PRIVATE_ROUTES"));
   assert.ok(!/well-known/.test(robots.replace(/\/\*[\s\S]*?\*\//g, "")), "/.well-known must not be disallowed");
 });
+
+test("both standing-record reads skip the relevance floor (a stored dislike or allergy must never be hidden)", () => {
+  const core = read("lib/memory-core.ts");
+  for (const name of ["recallSafety", "recallPreferences"]) {
+    const line = core.split("\n").find((l) => l.startsWith(`export const ${name} =`)) ?? "";
+    assert.ok(line.includes("floor: false"), `${name} must read with { floor: false }`);
+  }
+});

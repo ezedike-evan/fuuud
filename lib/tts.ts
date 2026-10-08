@@ -126,7 +126,11 @@ export async function synthesizeMp3(reply: string, opts: SynthOptions): Promise<
       throw new SpeechError("unavailable", "Could not reach the speech service.");
     }
     if (res.status === 401 || res.status === 403) throw new SpeechError("rejected", "The speech key was refused.");
-    if (!res.ok) throw new SpeechError("unavailable", `The speech service answered ${res.status}.`);
+    if (!res.ok) {
+      // Groq explains itself (for example that the model's terms have not been accepted); keep that reason.
+      const detail = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220);
+      throw new SpeechError("unavailable", `The speech service answered ${res.status}${detail ? `: ${detail}` : "."}`);
+    }
     try {
       return parseWav(new Uint8Array(await res.arrayBuffer()));
     } catch (e) {

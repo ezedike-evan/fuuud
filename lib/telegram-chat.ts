@@ -179,7 +179,10 @@ async function speak(chatId: string, reply: string) {
     const mp3 = await voiceReply(reply);
     if (mp3) await sendTelegramVoice(chatId, mp3);
   } catch (error) {
-    console.error("[fuuud] telegram voice reply failed:", error instanceof Error ? error.message : error);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error("[fuuud] telegram voice reply failed:", reason);
+    // Voice is on, so a missing voice note must not look like the bot ignoring the setting: say why, briefly.
+    await send(chatId, `I could not make a voice note this time. ${reason.slice(0, 260)}`).catch(() => undefined);
   }
 }
 
