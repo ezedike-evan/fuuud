@@ -397,10 +397,12 @@ verifies it with `verifyPersonalMessageSignature` and only then mints an
 HMAC-signed session cookie. An address asserted by the client is never trusted
 on its own — it is the key to someone's medical record.
 
-Note the dependency split: `@mysten-incubation/memwal` peers on
-`@mysten/sui >= 2.5.0`, while `@mysten/enoki` hard-depends on `1.33.0` and its
-`SuiClient` type is not compatible. `@mysten/sui-enoki` is an alias pinning
-1.33.0 so Enoki gets a matching client without a cast.
+Note on versions: `@mysten/enoki` 1.x, `@mysten/sui` 2.x and `@mysten-incubation/memwal`
+share one Sui package, so the wallet and the SDK pass transactions to each other
+unchanged and every client is a `SuiGrpcClient` (public JSON-RPC is deprecated).
+The older `@mysten/enoki` 0.6.x bundled `@mysten/sui` 1.33, which cannot parse
+sponsored transactions that use a `ValidDuring` expiry and failed account creation
+and key minting with `Invalid type: Expected Object but received Object`.
 
 ## MCP server — your memory, in any agent
 

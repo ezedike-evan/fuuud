@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// Enoki 0.6.x depends on @mysten/sui@1.33.0 and its SuiClient type is not
-// compatible with the v2 line that @mysten-incubation/memwal requires. The
-// alias pins the exact version enoki expects, so no cast is needed here.
-import { SuiClient, getFullnodeUrl } from "@mysten/sui-enoki/client";
+// Enoki 1.x is built on the same @mysten/sui 2.x line as @mysten-incubation/memwal, so
+// the wallet and the SDK share one transaction format (0.6.x bundled sui 1.33, which
+// could not parse sponsored transactions that use ValidDuring expiry).
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { friendlyError } from "@/lib/friendly-errors";
 
 /*
- * One network constant for the SuiClient, the wallet registration and the
+ * One network constant for the Sui client, the wallet registration and the
  * `chain` argument below. Enoki's wallet validates `chain` against the list it
  * was registered with and throws "A valid Sui chain identifier was not
  * provided in the request" when it is missing or from another network — so
@@ -63,7 +63,7 @@ export default function SignIn() {
     const { wallets, unregister } = registerEnokiWallets({
       apiKey,
       providers: { google: { clientId, redirectUrl } },
-      client: new SuiClient({ url: getFullnodeUrl(NETWORK) }),
+      client: new SuiGrpcClient({ network: NETWORK, baseUrl: `https://fullnode.${NETWORK}.sui.io:443` }),
       network: NETWORK,
     });
     setWallet(wallets.google ?? null);

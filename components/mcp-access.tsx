@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SuiClient, getFullnodeUrl } from "@mysten/sui-enoki/client";
 import { registerEnokiWallets, type EnokiWallet } from "@mysten/enoki";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { addDelegateKey, generateDelegateKey } from "@mysten-incubation/memwal/account";
@@ -39,7 +38,7 @@ export default function McpAccess({ address }: { address: string }) {
     const { wallets, unregister } = registerEnokiWallets({
       apiKey,
       providers: { google: { clientId, redirectUrl: `${origin}/signin` } },
-      client: new SuiClient({ url: getFullnodeUrl(NETWORK) }),
+      client: new SuiGrpcClient({ network: NETWORK, baseUrl: `https://fullnode.${NETWORK}.sui.io:443` }),
       network: NETWORK,
     });
     setWallet(wallets.google ?? null);

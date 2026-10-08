@@ -27,10 +27,10 @@ type WalletSigner = NonNullable<Parameters<typeof createAccount>[0]["walletSigne
  * `chain` is passed on every wallet call: Enoki validates it and rejects
  * undefined (same reason as in components/sign-in.tsx).
  *
- * UNVERIFIED LIVE: the SDK builds the Transaction with @mysten/sui 2.x while the
- * wallet's own client is 1.33 (see the alias in package.json). Both sides go
- * through the wallet-standard `toJSON()` handoff, which is version-neutral, but
- * this path needs one real zkLogin run before it is trusted.
+ * The wallet (@mysten/enoki 1.x) and the SDK share one @mysten/sui 2.x, so the sponsored
+ * transaction goes to the wallet unchanged. With the old 0.6.x wallet (sui 1.33) this step
+ * failed with "Invalid type: Expected Object but received Object" as soon as the sponsor
+ * returned a ValidDuring expiry, which sui 1.33 cannot parse. Do not re-add an alias to sui 1.x.
  */
 
 const MAX_ATTEMPTS = 3;
