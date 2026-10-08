@@ -10,7 +10,9 @@ import { runInScope } from "./memwal-scope.ts";
 import { NO_KEY_CODE } from "./providers.ts";
 import { credsOf, getGrant } from "./oauth/grants.ts";
 import { isDevMockCreds, devMockEnabled } from "./oauth/dev.ts";
-import { bindingKey, ensureCommands, sendTelegramMessage, type ChatBinding, type Update } from "./telegram.ts";
+import { bindingKey, downloadTelegramFile, ensureCommands, sendTelegramMessage, type ChatBinding, type TelegramVoice, type Update } from "./telegram.ts";
+import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "./stt.ts";
+import { TranscribeError, transcribe } from "./transcribe.ts";
 import { formatMemory, parseCommand, splitMessage, toPlain } from "./telegram-text.ts";
 
 /**
@@ -55,18 +57,18 @@ const HELP =
 /** Entry point for every non-link update. Never throws: a webhook handler must not make Telegram retry. */
 export async function handleChatUpdate(update: Update): Promise<void> {
   const msg = update.message;
-  if (!msg?.text || msg.chat.type !== "private") return;
+  if (!msg || msg.chat.type !== "private" || (!msg.text && !msg.voice)) return;
   const chatId = String(msg.chat.id);
   try {
     void ensureCommands();
-    await respond(update.update_id, chatId, msg.text);
+    await respond(update.update_id, chatId, msg.text ?? null, msg.voice ?? null);
   } catch (error) {
     console.error("[fuuud] telegram chat failed:", error instanceof Error ? error.message : error);
     await send(chatId, "Something went wrong on my side. Try again in a moment.").catch(() => {});
   }
 }
 
-async function respond(updateId: number, chatId: string, text: string) {
+async function respond(updateId: number, chatId: string, typed: string | null, voice: TelegramVoice | null) {
   // Telegram redelivers an update it thinks failed; answering twice would also write twice.
   if (!(await kvSetNX(`tg:upd:${updateId}`, 1, 3600).catch(() => true))) return;
 
@@ -91,6 +93,14 @@ async function respond(updateId: number, chatId: string, text: string) {
   const mock = isDevMockCreds(creds);
   if (mock && !devMockEnabled()) return;
 
+  // A voice note becomes text here, AFTER the checks above, so a stranger's audio is never sent for transcription.
+  let text = typed ?? "";
+  if (voice) {
+    const heard = await hear(chatId, voice);
+    if (!heard) return;
+    text = heard;
+  }
+
   const command = parseCommand(text);
   if (command?.cmd === "help" || command?.cmd === "start") return void (await send(chatId, HELP));
 
@@ -100,6 +110,39 @@ async function respond(updateId: number, chatId: string, text: string) {
     if (command) return void (await send(chatId, "I do not know that command. /help lists them."));
     await chatTurn(chatId, binding.address, text);
   });
+}
+
+/**
+ * Voice note -> text. The transcript is echoed back before the agent answers: a misheard
+ * allergy is the one error this app cannot afford, and the echo lets the person see it
+ * and say it again. Returns null after telling the person why when it cannot continue.
+ */
+async function hear(chatId: string, voice: TelegramVoice): Promise<string | null> {
+  if ((voice.duration ?? 0) > MAX_AUDIO_SECONDS || (voice.file_size ?? 0) > MAX_AUDIO_BYTES) {
+    await send(chatId, `That voice note is too long. Keep it under ${MAX_AUDIO_SECONDS} seconds, or type it.`);
+    return null;
+  }
+  void typing(chatId);
+  try {
+    const { bytes } = await downloadTelegramFile(voice.file_id);
+    // Telegram voice notes are Ogg/Opus. There is no browser here, so the deployment's key is used.
+    const said = await transcribe(bytes, "audio/ogg", { useCookieKey: false });
+    if (!said) {
+      await send(chatId, "I could not make out any words in that. Try again a little closer to the phone, or type it.");
+      return null;
+    }
+    await send(chatId, `🎙 I heard: “${said}”\n\nIf that is not right, say it again.`);
+    return said;
+  } catch (error) {
+    console.error("[fuuud] telegram voice failed:", error instanceof Error ? error.message : error);
+    await send(
+      chatId,
+      error instanceof TranscribeError && error.code === "no-key"
+        ? "Voice notes are not switched on for this server yet. Type your message instead."
+        : "I could not read that voice note. Try again, or type it.",
+    );
+    return null;
+  }
 }
 
 async function describeMemory(chatId: string, address: string) {

@@ -12,6 +12,7 @@ import { useElapsed, walrusStage } from "@/lib/use-elapsed";
 import { useWriteJobs, type JobRef } from "@/lib/use-write-jobs";
 import { isSettled, overall, stageLabel } from "@/lib/write-stages";
 import Markdown from "./markdown";
+import { useDictation } from "@/lib/use-dictation";
 
 const STARTERS = [
   "I'm diabetic and groundnuts give me hives",
@@ -126,6 +127,11 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
         if (sent.current) setInput(sent.current);
       },
     });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dictation = useDictation((text) => {
+    setInput((cur) => (cur.trim() ? `${cur.trim()} ${text}` : text));
+    inputRef.current?.focus();
+  });
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(DRAFT_KEY);
@@ -454,6 +460,7 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
         className="shrink-0 bg-canvas pb-4 pt-3 sm:pb-6">
         <div className="card px-3 pb-3 pt-3.5">
           <input
+            ref={inputRef}
             value={input}
             onChange={handleInputChange}
             aria-label="Message"
@@ -470,6 +477,31 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
               />
               Memory on
             </span>
+            <div className="flex items-center gap-2.5">
+            {dictation.supported && (
+              <button
+                type="button"
+                onClick={dictation.state === "recording" ? dictation.stop : dictation.start}
+                disabled={dictation.state === "transcribing" || Boolean(unavailable)}
+                aria-pressed={dictation.state === "recording"}
+                aria-label={dictation.state === "recording" ? "Stop recording" : "Dictate a message"}
+                title={dictation.state === "recording" ? "Stop and transcribe" : "Dictate with your voice"}
+                className={`grid size-11 shrink-0 place-items-center rounded-full border transition-colors sm:size-9 ${
+                  dictation.state === "recording" ? "border-danger-line text-danger" : "border-line text-ink-muted hover:text-ink"
+                } disabled:opacity-40`}
+              >
+                {dictation.state === "recording" ? (
+                  <span aria-hidden className="size-3 rounded-[3px] bg-danger" />
+                ) : dictation.state === "transcribing" ? (
+                  <span aria-hidden className="saving-dot size-[7px] rounded-full bg-accent" />
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" />
+                  </svg>
+                )}
+              </button>
+            )}
             <button
               type="submit"
               disabled={busy || !input.trim() || Boolean(unavailable)}
@@ -480,7 +512,16 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
                 <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
               </svg>
             </button>
+            </div>
           </div>
+          {/* Dictation status: what it is doing, and why it failed if it did. */}
+          <p role="status" aria-live="polite" className="min-h-0 px-2 pt-2 text-[12px] text-ink-faint empty:hidden">
+            {dictation.state === "recording"
+              ? `Listening… ${dictation.seconds}s. Press the square to stop.`
+              : dictation.state === "transcribing"
+                ? "Writing down what you said…"
+                : dictation.error ?? ""}
+          </p>
         </div>
       </form>
     </div>

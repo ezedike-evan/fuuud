@@ -40,6 +40,16 @@ async function call<T>(method: string, body: Record<string, unknown>): Promise<T
   return json.result as T;
 }
 
+/** A voice note's bytes: ask Telegram where the file is, then download it. */
+export async function downloadTelegramFile(fileId: string): Promise<{ bytes: Uint8Array; path: string }> {
+  const file = await call<{ file_path?: string; file_size?: number }>("getFile", { file_id: fileId });
+  if (!file.file_path) throw new Error("telegram getFile returned no path");
+  const token = botToken();
+  const res = await fetch(`${API}/file/bot${token}/${file.file_path}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`telegram file download failed: ${res.status}`);
+  return { bytes: new Uint8Array(await res.arrayBuffer()), path: file.file_path };
+}
+
 export const sendTelegramMessage = (chatId: string, text: string, opts: { html?: boolean } = {}) =>
   call("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...(opts.html ? { parse_mode: "HTML" } : {}) });
 
@@ -75,9 +85,11 @@ export async function createLink(address: string, grantId?: string): Promise<str
   return `https://t.me/${botUsername()}?start=${id}`;
 }
 
+export type TelegramVoice = { file_id: string; duration?: number; mime_type?: string; file_size?: number };
+
 export type Update = {
   update_id: number;
-  message?: { text?: string; chat: { id: number; type: string } };
+  message?: { text?: string; voice?: TelegramVoice; chat: { id: number; type: string } };
 };
 
 const START = /^\/start\s+([A-Za-z0-9_-]{16,64})$/;
