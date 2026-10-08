@@ -38,6 +38,7 @@ export default function Privacy() {
           <h2>Who else processes data</h2>
           <ul>
             <li><strong>Voice.</strong> If you dictate a message or send the Telegram bot a voice note, the recording is sent to Groq to be turned into text. We do not store the audio. On the website the text goes into your message box for you to check before you send it; on Telegram the bot replies with what it heard first.</li>
+            <li><strong>Spoken replies.</strong> On the website, replies are read aloud with your browser&apos;s own voice on your device if you tap Listen or turn on read-aloud; we run nothing for that, although some browsers process their built-in voices in the cloud. On Telegram, if you send /voice on, the text of each reply is sent to Groq to turn it into a voice note, and the audio is not kept. It is off until you turn it on.</li>
             <li><strong>An AI model provider</strong> receives your messages and the facts recalled for that turn to write a reply. By default this is a provider we configure; if you add your own key in Settings, that key and provider are used.</li>
             <li><strong>Walrus and Sui</strong> store the encrypted record and the account and key registry. Blockchain data is public by design; the health facts themselves are encrypted.</li>
             <li><strong>Enoki and Google</strong> provide sign-in and the wallet created for you.</li>

@@ -13,6 +13,7 @@ import { useWriteJobs, type JobRef } from "@/lib/use-write-jobs";
 import { isSettled, overall, stageLabel } from "@/lib/write-stages";
 import Markdown from "./markdown";
 import { useDictation } from "@/lib/use-dictation";
+import { useSpeech } from "@/lib/use-speech";
 
 const STARTERS = [
   "I'm diabetic and groundnuts give me hives",
@@ -116,12 +117,19 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
    * box (with the failed turn removed) if the request fails.
    */
   const DRAFT_KEY = "fuuud:draft";
+  const speech = useSpeech();
+  const autoRef = useRef(false);
+  autoRef.current = speech.auto;
   const sent = useRef("");
   const { messages, input, setInput, handleInputChange, handleSubmit, status, append, error, setMessages } =
     useChat({
       api: "/api/chat",
       // The stream now closes as soon as the answer is done; saving is followed per job.
-      onFinish: () => router.refresh(),
+      onFinish: (message) => {
+        router.refresh();
+        // Read-aloud, when the person turned it on: speak the finished reply (the text is already on screen).
+        if (autoRef.current && message.role === "assistant" && message.content.trim()) speech.speak(message.id, message.content);
+      },
       onError: () => {
         setMessages((prev) => (prev.at(-1)?.role === "user" ? prev.slice(0, -1) : prev));
         if (sent.current) setInput(sent.current);
@@ -384,6 +392,20 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
                           nothing to save
                         </span>
                       ) : null}
+                      {speech.supported && (
+                        <button
+                          type="button"
+                          onClick={() => (speech.speakingId === m.id ? speech.stop() : speech.speak(m.id, m.content))}
+                          aria-pressed={speech.speakingId === m.id}
+                          aria-label={speech.speakingId === m.id ? "Stop reading this reply" : "Read this reply aloud"}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted transition-colors hover:text-ink"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            {speech.speakingId === m.id ? <rect x="6" y="6" width="12" height="12" rx="2" /> : <><path d="M11 5 6 9H3v6h3l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /></>}
+                          </svg>
+                          {speech.speakingId === m.id ? "Stop" : "Listen"}
+                        </button>
+                      )}
                       <span className="rounded-full bg-surface-hi px-2.5 py-1 text-[11px] text-ink-muted">
                         {recalled.length
                           ? `recalled ${recalled.length} fact${recalled.length === 1 ? "" : "s"}`
@@ -454,6 +476,7 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
 
       <form
         onSubmit={(e) => {
+          speech.stop();
           sent.current = input;
           handleSubmit(e);
         }}
@@ -478,10 +501,27 @@ export default function Chat({ unavailable }: { unavailable?: MemoryFailure }) {
               Memory on
             </span>
             <div className="flex items-center gap-2.5">
+            {speech.supported && (
+              <button
+                type="button"
+                onClick={() => speech.setAuto(!speech.auto)}
+                aria-pressed={speech.auto}
+                aria-label={speech.auto ? "Turn off reading replies aloud" : "Read replies aloud"}
+                title={speech.auto ? "Replies are read aloud. Tap to turn off." : "Read replies aloud"}
+                className={`grid size-11 shrink-0 place-items-center rounded-full border transition-colors sm:size-9 ${
+                  speech.auto ? "border-accent-line bg-accent-wash text-accent" : "border-line text-ink-muted hover:text-ink"
+                }`}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M11 5 6 9H3v6h3l5 4z" />
+                  {speech.auto ? <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /> : <path d="m16 9 5 6M21 9l-5 6" />}
+                </svg>
+              </button>
+            )}
             {dictation.supported && (
               <button
                 type="button"
-                onClick={dictation.state === "recording" ? dictation.stop : dictation.start}
+                onClick={dictation.state === "recording" ? dictation.stop : () => { speech.stop(); void dictation.start(); }}
                 disabled={dictation.state === "transcribing" || Boolean(unavailable)}
                 aria-pressed={dictation.state === "recording"}
                 aria-label={dictation.state === "recording" ? "Stop recording" : "Dictate a message"}

@@ -28,7 +28,7 @@ export default function VoiceToggle() {
           role="status"
           className="absolute right-0 top-[calc(100%+8px)] z-20 w-56 rounded-lg border border-line bg-surface p-3 text-xs leading-relaxed text-ink-muted shadow-lg"
         >
-          Tap the mic beside Send to dictate a message. Spoken replies and hands-free talk are next.
+          Tap the mic beside Send to dictate, and the speaker to have replies read aloud. Hands-free talk is next.
         </p>
       )}
     </div>

@@ -50,6 +50,18 @@ export async function downloadTelegramFile(fileId: string): Promise<{ bytes: Uin
   return { bytes: new Uint8Array(await res.arrayBuffer()), path: file.file_path };
 }
 
+/** A voice note. Telegram plays MP3 as a voice message. */
+export async function sendTelegramVoice(chatId: string, mp3: Uint8Array): Promise<void> {
+  const token = botToken();
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not set.");
+  const form = new FormData();
+  form.set("chat_id", chatId);
+  form.set("voice", new Blob([mp3 as BlobPart], { type: "audio/mpeg" }), "fuuud.mp3");
+  const res = await fetch(`${API}/bot${token}/sendVoice`, { method: "POST", body: form, cache: "no-store", signal: AbortSignal.timeout(25_000) });
+  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+  if (!json.ok) throw new Error(`telegram sendVoice: ${json.description ?? res.status}`);
+}
+
 export const sendTelegramMessage = (chatId: string, text: string, opts: { html?: boolean } = {}) =>
   call("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...(opts.html ? { parse_mode: "HTML" } : {}) });
 
@@ -60,9 +72,10 @@ export const sendTelegramMessage = (chatId: string, text: string, opts: { html?:
  */
 export const BOT_COMMANDS = [
   { command: "memory", description: "What I know about you" },
+  { command: "voice", description: "Turn spoken replies on or off" },
   { command: "help", description: "What I can do" },
 ];
-const COMMANDS_VERSION = "v1";
+const COMMANDS_VERSION = "v2";
 
 export async function ensureCommands(): Promise<void> {
   try {

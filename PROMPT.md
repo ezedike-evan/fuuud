@@ -4,6 +4,10 @@ Copy everything between the two `---8<---` markers into your agent's system
 prompt (Claude Code `CLAUDE.md`, Cursor rules, an OpenAI `system` message, or
 the "custom instructions" box of any assistant).
 
+The same prompt drives Fuuud's own surfaces: the website chat and the Telegram bot (including voice notes, which are
+transcribed to text first and echoed back so a misheard allergy can be corrected) run it directly, and the hosted
+connector gives it to any AI app. In the app it lives in `lib/chat-core.ts`.
+
 It assumes five memory tools are available. Wire them up first — see
 [Running it yourself](#running-it-yourself) below the prompt.
 

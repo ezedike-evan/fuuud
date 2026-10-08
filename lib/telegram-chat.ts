@@ -3,14 +3,15 @@ import { generateText } from "ai";
 import { chatModel } from "./model.ts";
 import { composeSystem, persist, recallAll, type StoredReport } from "./chat-core.ts";
 import { buildPlanWeek } from "./plan-week.ts";
-import { kvGet, kvIncr, kvSet, kvSetNX } from "./kv.ts";
+import { kvDel, kvGet, kvIncr, kvSet, kvSetNX } from "./kv.ts";
 import { describeMemoryFailure } from "./memory-errors.ts";
 import { namespaceOfKind, writeStatus } from "./memory-core.ts";
 import { runInScope } from "./memwal-scope.ts";
 import { NO_KEY_CODE } from "./providers.ts";
 import { credsOf, getGrant } from "./oauth/grants.ts";
 import { isDevMockCreds, devMockEnabled } from "./oauth/dev.ts";
-import { bindingKey, downloadTelegramFile, ensureCommands, sendTelegramMessage, type ChatBinding, type TelegramVoice, type Update } from "./telegram.ts";
+import { bindingKey, downloadTelegramFile, ensureCommands, sendTelegramMessage, sendTelegramVoice, type ChatBinding, type TelegramVoice, type Update } from "./telegram.ts";
+import { speechConfigured, voiceReply } from "./speak.ts";
 import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "./stt.ts";
 import { TranscribeError, transcribe } from "./transcribe.ts";
 import { formatMemory, parseCommand, splitMessage, toPlain } from "./telegram-text.ts";
@@ -50,8 +51,8 @@ const typing = (chatId: string) => {
 };
 
 const HELP =
-  "Ask me anything about food. Tell me an allergy, a condition or something you dislike and I will remember it.\n\n" +
-  "/memory - what I know about you\n/help - this message\n\n" +
+  "Ask me anything about food, by text or by voice note. Tell me an allergy, a condition or something you dislike and I will remember it.\n\n" +
+  "/memory - what I know about you\n/voice on - I also reply with a voice note (/voice off to stop)\n/help - this message\n\n" +
   "To forget something or disconnect me, open Settings in Fuuud. I am not a doctor.";
 
 /** Entry point for every non-link update. Never throws: a webhook handler must not make Telegram retry. */
@@ -107,6 +108,7 @@ async function respond(updateId: number, chatId: string, typed: string | null, v
   void typing(chatId);
   await runInScope({ creds: mock ? null : creds, maxWaitMs: 20_000 }, async () => {
     if (command?.cmd === "memory") return void (await describeMemory(chatId, binding.address));
+    if (command?.cmd === "voice") return void (await setVoice(chatId, command.arg));
     if (command) return void (await send(chatId, "I do not know that command. /help lists them."));
     await chatTurn(chatId, binding.address, text);
   });
@@ -142,6 +144,42 @@ async function hear(chatId: string, voice: TelegramVoice): Promise<string | null
         : "I could not read that voice note. Try again, or type it.",
     );
     return null;
+  }
+}
+
+/* ------------------------------ spoken replies ------------------------------ */
+
+const voiceKey = (chatId: string) => `tg:voice:${chatId}`;
+const VOICE_PER_DAY = 40;
+
+const voiceOn = (chatId: string) => kvGet<number>(voiceKey(chatId)).then((v) => v === 1, () => false);
+
+/** `/voice on|off|status`. Off by default: a reply says things like "no groundnut, as you told me", and speaking it sends that text to the speech provider. */
+async function setVoice(chatId: string, arg: string) {
+  const want = arg.trim().toLowerCase();
+  if (want === "on") {
+    if (!speechConfigured()) return void (await send(chatId, "Spoken replies are not switched on for this server yet."));
+    await kvSet(voiceKey(chatId), 1, 90 * 86_400);
+    return void (await send(chatId, "Voice replies are on. I will send a voice note after each answer. The text still comes first. To speak it, the text of my reply goes to Groq, our speech provider, and the audio is not kept. /voice off stops it."));
+  }
+  if (want === "off") {
+    await kvDel(voiceKey(chatId));
+    return void (await send(chatId, "Voice replies are off."));
+  }
+  await send(chatId, `Voice replies are ${(await voiceOn(chatId)) ? "on" : "off"}. Use /voice on or /voice off.`);
+}
+
+/** After the text reply, if the person asked for it. Best-effort: speech must never lose or delay the answer. */
+async function speak(chatId: string, reply: string) {
+  try {
+    if (!(await voiceOn(chatId)) || !speechConfigured()) return;
+    const day = Math.floor(Date.now() / 86_400_000);
+    if ((await kvIncr(`tg:tts:${chatId}:${day}`, 90_000).catch(() => 0)) > VOICE_PER_DAY) return;
+    void typing(chatId);
+    const mp3 = await voiceReply(reply);
+    if (mp3) await sendTelegramVoice(chatId, mp3);
+  } catch (error) {
+    console.error("[fuuud] telegram voice reply failed:", error instanceof Error ? error.message : error);
   }
 }
 
@@ -197,11 +235,16 @@ async function chatTurn(chatId: string, address: string, text: string) {
   await send(chatId, `${reply}${receipt(stored)}`);
   await kvSet(`tg:last:${chatId}`, reply, LAST_REPLY_TTL_S).catch(() => undefined);
 
-  if (stored.written.length) {
-    // A new fact can make a scheduled meal unsafe: re-screen the plan, as the web chat does.
-    await buildPlanWeek(address).catch(() => undefined);
-    if (stored.jobs?.length) await followUp(chatId, address, stored);
-  }
+  // The voice note and the save follow-up are independent: run them together so neither waits for the other.
+  await Promise.all([
+    speak(chatId, reply),
+    (async () => {
+      if (!stored.written.length) return;
+      // A new fact can make a scheduled meal unsafe: re-screen the plan, as the web chat does.
+      await buildPlanWeek(address).catch(() => undefined);
+      if (stored.jobs?.length) await followUp(chatId, address, stored);
+    })(),
+  ]);
 }
 
 /** What happened to the write, in a line. Never says saved before Walrus confirms. */

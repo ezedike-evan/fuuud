@@ -76,15 +76,32 @@ relayer, `NEXT_PUBLIC_SUI_NETWORK` and the Enoki key must be on the SAME network
 `MEMWAL_SHARED_ACCOUNT=1` restores the old single-server-key mode for a demo; it
 makes "you own your memory" untrue and is off by default.
 
+**Devices and keys.** Signing in on a second device makes a second delegate key on the same account, never a
+second account. Settings lists every key (this browser, connected apps, the Telegram chat, other devices) with
+its label and date, counts them against the contract's cap of 20, and removes any one with a wallet signature.
+Setup checks the cap first and offers to make room, and removing this browser's key sends you back through
+setup. If the relayer refuses a key (the same 401 as a throttle), the app fails **closed**: it says it cannot read
+your record and never shows an empty one, because an empty record looks exactly like "no allergies".
+
 Relayer allowance: 30 points per minute per delegate key (remember 5, recall 1,
 analyze 10). `lib/relayer-budget.ts` spends it deliberately, and a week of
 planned meals is written with one bulk call, not 21 single writes.
+
+## Saves you can watch
+
+A write to Walrus takes 25-120 seconds (encrypt, upload, certify, index). The chat stream used to stay open for all of
+it, so a slow upload became a dropped connection and a stale "saving" chip. Now `rememberAsync` returns a job
+id after at most 6 seconds per fact, the stream closes, and the browser follows each job through
+`/api/memory/job` (pending, running, uploaded, done, or failed with the relayer's reason) with a live timer. The chip
+says "saved" only when every job is `done`. The route derives the namespace from your session and the fact kind, never
+from the request, so a job id cannot be probed across accounts. A failed request puts your message back in the box
+and removes the failed turn; the draft also survives a reload.
 
 ## Reminders, Telegram and calendar
 
 | Channel | How | Needs |
 |---|---|---|
-| Telegram | Bot API directly; `/start <id>` deep link, webhook or polling | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` |
+| Telegram | Bot API directly; `/start <id>` deep link, webhook. Reminders **and chat** | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` |
 | Browser push | Web Push (VAPID) + `public/sw.js` | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
 | Calendar | `.ics` download + per-meal Google Calendar links, no OAuth | nothing |
 | Scheduler | GitHub Actions -> `GET /api/cron/reminders` | `CRON_SECRET`, Upstash Redis |
@@ -108,8 +125,45 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -d url=https://<origin>/api/telegram/webhook -d secret_token=$TELEGRAM_WEBHOOK_SECRET
 ```
 
-Locally, skip the webhook: Settings polls `getUpdates` while you press Start.
-iOS only delivers web push once the site is added to the home screen.
+Register it on the host that does **not** redirect (Telegram does not follow a 308), e.g. `www.` if the apex
+redirects to it. Locally, Settings polls `getUpdates` while you press Start; that completes linking only. Chat
+needs the webhook (point `TELEGRAM_API_BASE` at a stand-in server to test it offline). iOS only delivers web push
+once the site is added to the home screen.
+
+### Chat with Fuuud in Telegram
+
+Message the bot and it answers like the website chat: it runs the same turn (`lib/chat-core.ts`: one recall, one
+model call, the write gate) and it fails closed if your record cannot be read. `/memory` shows what it knows,
+grouped by kind; `/voice on|off` toggles spoken replies; `/help` lists commands; the `/` menu is registered with Telegram.
+
+A Telegram message carries no browser session, so the chat speaks to Walrus with **its own delegate key**. Pressing
+**Connect Telegram** makes that key in your browser, your wallet registers it on your account (gas sponsored), and
+the server keeps it sealed (AES-GCM under `OAUTH_SECRET`, as a grant named "Fuuud Telegram"). It is a different key
+from your browser's; Disconnect revokes it, and it also appears under Connected apps. The webhook answers Telegram
+at once and works in `after()`; updates are de-duplicated, each chat is limited to 8 messages a minute, and a
+chat that is not linked is told so and never reaches memory. Saves report the way the website does: "Saving to
+Walrus" first, then "Saved" or the reason it failed. The only text kept for context is your last reply, for 15 minutes.
+
+### Voice
+
+Listen and talk, not hands-free conversation yet. On the website, the mic beside Send records up to about a minute, sends it to
+`/api/transcribe` (Groq Whisper, `KM_STT_MODEL`, default `whisper-large-v3-turbo`, English with a Nigerian
+food-and-health vocabulary hint) and puts the text in the message box. It never sends by itself, so a misheard
+word is seen before it can reach a health record. A **Telegram voice note** is downloaded, transcribed with the
+server's `GROQ_API_KEY`, and echoed back ("I heard: ...") before the agent answers; notes over 60 seconds or
+3 MB are refused, and a chat that is not linked is never transcribed. Audio goes to Groq and is not stored by
+us. A visitor's own Groq key in Settings is used on the website. 
+
+**Spoken replies.** On the website each reply has a **Listen** chip, and a speaker toggle beside the mic reads every
+reply aloud; both use the browser's own voice (`speechSynthesis`, `lib/use-speech.ts`), so they cost nothing and run
+no server code. The voice is chosen for clear neutral English (an en-NG voice if the device has one), the choice is
+remembered on the device, and it is off until turned on. On Telegram, `/voice on` makes the bot follow each text
+reply with a voice note (`/voice off` stops it; the text always comes first and the setting is per chat). That path
+uses Groq's Orpheus model (`KM_TTS_MODEL`, `KM_TTS_VOICE`, default voice `hannah`): Groq accepts 200 characters per
+call and returns WAV, so `lib/tts.ts` splits the reply into sentences, joins the audio and encodes MP3 itself, which
+Telegram plays as a voice message. Reply text goes to Groq for this and the audio is not kept; it is capped at 40
+voice notes a chat a day. Not built yet: hands-free conversation. Pidgin comes out as English words, and Yoruba and
+Hausa transcribe poorly with the English setting.
 
 ## Connect any AI app (hosted MCP)
 
@@ -159,6 +213,24 @@ live AI apps still need one manual run each.
 **Not covered yet.** Client ID Metadata Documents (ChatGPT prefers them but falls back to registration); the
 Gemini consumer app and other new surfaces (add their redirect URI with `OAUTH_REDIRECT_ALLOW`).
 
+## Brand, guides and speed
+
+- **Mark.** The Recall Bowl: a lit gold bowl with one thread of steam ending in a point of light. One source,
+  `lib/brand-mark.ts`; `node --experimental-strip-types scripts/make-icons.mts` renders `app/icon.svg`, `favicon.ico`,
+  the apple and PWA icons (including a maskable one) and `brand/logo-120.png` (for the Google consent screen).
+- **Public pages** are registered once in `lib/pages.ts` and feed the sitemap, titles, descriptions and the SEO tests:
+  `/guides`, how your memory stays private, how to connect Claude/ChatGPT/Cursor, five allergen guides for Nigerian
+  food (written conservatively, always with a not-medical-advice note), `/privacy` and `/terms`.
+- **SEO.** Metadata with canonical URLs and generated social cards, `robots.txt`, `sitemap.xml`, `llms.txt`,
+  Organization / WebSite / SoftwareApplication / FAQPage / Article / BreadcrumbList / HowTo structured data, and
+  `noindex` on every signed-in page (a test fails if one is missed). URLs come from `APP_URL`, so set it to the
+  host that does not redirect. Optional `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`,
+  `NEXT_PUBLIC_CONTACT_EMAIL` (see `.env.example`).
+- **Speed.** The landing page is static HTML (first-load JS 157 kB dynamic -> 110 kB static), fonts are self-hosted
+  through `next/font` (no third-party font requests), scroll reveals are CSS only, and "How it works" is plain
+  content rather than a scroll-jacked panel. Lighthouse on production: 96 mobile / 100 desktop performance,
+  96 accessibility, 100 best practices, 100 SEO.
+
 ## Layout
 
 ```
@@ -169,7 +241,13 @@ lib/consultants.ts       practitioner ranking driven by recalled conditions
 lib/namespaces.ts        the only place namespace strings are built
 lib/memory-core.ts       the contract, importable from anywhere
 mcp/server.mts           the same contract, exposed over MCP
-app/api/chat/route.ts    recall once, generate, write behind the gate
+lib/chat-core.ts         the prompt, recall, system composition and write gate, shared by web and Telegram
+lib/telegram-chat.ts     chatting (and voice notes) inside Telegram
+lib/transcribe.ts        speech to text (Groq Whisper)
+lib/tts.ts               text to speech for Telegram voice notes (Groq Orpheus, MP3 encode)
+lib/use-speech.ts        read replies aloud with the browser voice
+lib/pages.ts             every public page, once: sitemap, metadata, tests
+app/api/chat/route.ts    the website chat: recall once, generate, report the write
 app/settings/page.tsx    every stored fact, retract, revoke
 components/landing/      the landing page, section by section
 design/                  the .dc.html design canvas artboards
@@ -294,6 +372,10 @@ pnpm test        # pure logic, no network
 pnpm typecheck
 pnpm smoke       # live check against the staging relayer (needs MEMWAL_* keys)
 ```
+
+`pnpm smoke` needs a test account's `MEMWAL_PRIVATE_KEY` and `MEMWAL_ACCOUNT_ID` (the app no longer holds a shared key):
+create an account at `/setup`, then take the values from **Settings -> Connect a coding agent (MCP)**, which prints
+them once, and put them in `.env.local` next to the `MEMWAL_SERVER_URL` for your network.
 
 `pnpm smoke` writes a synthetic subject to staging and asserts the four claims
 this project rests on: a fact survives a fresh session, an identical write is

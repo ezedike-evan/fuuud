@@ -39,7 +39,7 @@ twice. For someone managing diabetes and a groundnut allergy, that is not an
 inconvenience. A forgotten allergy is a hazard, and re-declaring it every
 session is a hazard waiting for the one time you forget.
 
-Fuuud is four surfaces over one record:
+Fuuud is several surfaces over one record:
 
 - **The chat** recalls your conditions and allergies before generating, folds
   them into the system prompt as hard constraints, and screens what comes back.
@@ -50,6 +50,8 @@ Fuuud is four surfaces over one record:
   against the record each time the page loads, and can send a message before
   each meal (Telegram, browser push) or export the week as an `.ics` file. A meal
   that stops passing the screen is flagged, and its reminder is cancelled.
+- **Telegram and voice.** Message the bot, or send it a voice note, and it answers from the same record. The
+  website chat has a mic for dictation. Both are described below.
 - **An MCP server** exposes the same memory, through the *same contract*, to
   Claude Code, Cursor, or any other agent. A fact your coding agent learns is
   enforced by the web app's allergen screen, and vice versa, because the record
@@ -80,6 +82,33 @@ web page the model reads can instruct it, `forget_fact` refuses without an expli
 `pnpm oauth:e2e` drives the whole flow over HTTP (70 checks). What it cannot cover is the wallet and the
 live AI apps themselves, which need a manual run, and we have not claimed otherwise.
 
+### Chat from Telegram, and by voice
+
+The Telegram bot is a full surface, not only a reminder channel. It runs the same turn as the website chat (shared in
+`lib/chat-core.ts`: the same prompt, one recall, the same write gate) and the same rule: if the record cannot be
+read it says so and does not guess at your conditions. A Telegram message has no browser session, so the bot speaks
+to Walrus with **its own delegate key**, minted in your browser when you press Connect Telegram, registered by your
+wallet, and kept sealed on the server as a revocable grant. It is separate from your browser's key and from every
+AI app's. Updates are de-duplicated, chats are rate-limited, and a chat that is not linked never reaches memory.
+
+Voice goes both ways. The website's mic transcribes into the message box and never sends by itself. A Telegram
+voice note is transcribed and **echoed back** ("I heard: ...") before the agent answers, because a misheard allergy
+is the one error this app cannot afford. Replies can be spoken: on the website with the browser's own voice (a Listen
+chip on each reply and a read-aloud toggle, off by default, nothing sent to us), and on Telegram with `/voice on`, which
+follows the text reply with a voice note made by Groq's Orpheus model (200 characters a call, WAV out, so the reply is
+chunked and encoded to MP3 in `lib/tts.ts`). Speech in and out goes through Groq, is not stored by us, and is disclosed
+in the privacy policy. Hands-free conversation is next, and it will confirm any fact aloud before saving it.
+
+### Saves you can watch
+
+The first version held the chat stream open while Walrus certified the write (25-120 s), so a slow upload surfaced
+as a "network error", a stale "saving" chip and a lost draft. Following the Walrus Memory demo's job pattern, a save now
+returns a relayer job id quickly and the browser follows it (pending, running, uploaded, done, or failed with the
+reason). The chip says "saved" only when every job is `done`; a failure shows why; a failed request returns your text to
+the box. One real bug this surfaced is worth stating: after a successful save the memory panel stayed empty
+because health recall was filtered by a relevance distance, so stored allergies were dropped on read. Health facts are
+now read without a floor, since an allergy applies to every question whether or not it resembles the query.
+
 ### Your own account, and gas you do not pay
 
 Each person creates **their own** Walrus Memory account at `/setup`. Their Enoki
@@ -97,6 +126,11 @@ it. Nobody needs SUI. Settings can also issue a second, separate key for a codin
 agent (MCP), generated in the browser and shown once (the MCP server reads the
 owner address from the account on Sui, so there is no address to configure), so the same record works in
 Claude Code or Cursor without this app ever holding that key.
+
+Signing in on another device adds a delegate key to the same account instead of creating a new one. Settings lists
+every key (this browser, connected apps, Telegram, other devices), counts them against the contract's cap of 20,
+and removes one with a wallet signature; setup checks the cap first. If the relayer refuses a key, the app fails
+**closed** with a banner and a "set up again" action. It never shows an empty record, which would read as "no allergies".
 
 The safety check is deliberately **not** the model's job. `check_meal` matches
 ingredient tokens against your recorded allergens (`kuli kuli` → peanut,
@@ -290,6 +324,15 @@ on Walrus without exposing its contents. The smoke test uses a synthetic subject
 and synthetic conditions; no real person's medical data goes onto a public
 network.
 
+`pnpm smoke` needs a test account's `MEMWAL_PRIVATE_KEY` and `MEMWAL_ACCOUNT_ID` (create one at `/setup`, then
+Settings -> Connect a coding agent (MCP) prints them once). The checked-in `PROOF.md` is from an earlier run: rerun it
+against your own network before relying on it.
+
+Also checked in this repository: 261 unit tests, `pnpm oauth:e2e` (the hosted connector over HTTP on the offline
+mock), a scope guard that fails if any page or route reaches memory without the person's own account in scope,
+and an SEO guard that fails if a signed-in page is ever indexable. Lighthouse on the production site:
+performance 96 on mobile and 100 on desktop, accessibility 96, best practices 100, SEO 100.
+
 Two more checks that need **no credentials and no API key at all**:
 
 ```bash
@@ -357,6 +400,24 @@ again on every plan read and every chat turn that stores a fact, so a new
 allergy cancels the matching reminders before the next run. A change made
 between runs can still be one interval behind, and GitHub's scheduled runs can
 start minutes late.
+
+**The Telegram bot and connected apps hold a key on our server.** To act while your browser is closed, each gets
+its own delegate key, sealed at rest (AES-GCM) and revocable: Disconnect discards it and you can remove it from your
+account. That is a real trade-off against "the server never holds your key", and the privacy page and the consent
+screen say so. The web app's own key stays in an encrypted cookie in your browser.
+
+**Voice sends speech to Groq.** Dictation and Telegram voice notes are transcribed by Groq Whisper, and Telegram spoken
+replies (opt-in) send the reply text to Groq's Orpheus model. We do not store
+the audio. The model is set to English with a Nigerian food vocabulary hint: Pidgin comes out as English words, and
+Yoruba and Hausa transcribe poorly. Telegram voice notes use the deployment's key; the website uses the visitor's own
+Groq key if they added one.
+
+**The allergen guides are reading aids, not advice.** The public guides for Nigerian food and allergens are written with
+hedged language ("often", "check"), always carry a not-medical-advice note, and say recipes vary by cook and region.
+They should be read by someone qualified before being relied on.
+
+**The proof is only as current as its last run.** `PROOF.md` is generated, not hand-written, and records its own
+timestamp and relayer. Mainnet and testnet runs are different networks.
 
 **Mainnet is real.** On the production relayer, storage is paid for by the
 relayer and every account transaction is sponsored; the data is on a public

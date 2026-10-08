@@ -59,7 +59,7 @@ export const PRIVACY: PageEntry = {
   path: "/privacy",
   title: "Privacy policy",
   description: "What Fuuud collects, where it goes, who processes it, and how to delete or take back what you share.",
-  updated: "2026-10-08",
+  updated: "2026-10-09",
 };
 
 export const TERMS: PageEntry = {
