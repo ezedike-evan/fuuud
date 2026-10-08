@@ -17,9 +17,9 @@ const btn =
   "rounded-[8px] border border-line px-[13px] py-[7px] text-[12.5px] transition-[background-color,transform] duration-200 hover:bg-surface active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40";
 
 /**
- * Gives a coding agent (Claude Code, Cursor) its OWN delegate key on YOUR
- * account, so the MCP server can read and write the same record the web app
- * does. The key is generated in this browser, registered onchain by your wallet,
+ * Gives a script or local tool (the proof script, a local MCP server) its OWN
+ * delegate key on YOUR account, so it can read and write the same record the web
+ * app does. The hosted Claude/ChatGPT connector does not use this. The key is generated in this browser, registered onchain by your wallet,
  * and shown once - it never touches our server, which is the point: this app
  * does not hold your agent's key.
  */
@@ -87,7 +87,7 @@ export default function McpAccess({ address }: { address: string }) {
         },
       });
     } catch (e) {
-      setError(friendlyError(e, "Could not create an agent key.", NETWORK));
+      setError(friendlyError(e, "Could not create a developer key.", NETWORK));
     } finally {
       setBusy(false);
     }
@@ -112,16 +112,17 @@ export default function McpAccess({ address }: { address: string }) {
 
   return (
     <section className="rounded-[10px] border border-line px-5 py-[18px] lg:col-span-2">
-      <h2 className="mb-1.5 text-sm font-medium">Connect a coding agent (MCP)</h2>
+      <h2 className="mb-1.5 text-sm font-medium">Developer key</h2>
       <p className="mb-4 max-w-[68ch] text-[12.5px] leading-relaxed text-ink-muted">
-        Creates a separate key on your account for Claude Code, Cursor or any MCP client, so the same
-        record and the same allergen screen work there. It is made in this browser and shown once; we
-        never receive it. It can read and write your whole record until you remove it onchain.
+        For scripts and tools you run yourself, such as a local MCP server or the proof script. To use
+        Fuuud in Claude or ChatGPT, use Connected apps above, and Telegram needs no key at all. This makes
+        a separate key on your account. It is made in this browser and shown once; we never receive it.
+        It can read and write your whole record until you remove it onchain.
       </p>
 
       {!issued ? (
         <button type="button" className={btn} disabled={busy || !wallet} onClick={issue}>
-          {busy ? "Registering the key onchain…" : "Create an agent key"}
+          {busy ? "Registering the key onchain…" : "Create a developer key"}
         </button>
       ) : (
         <div>

@@ -165,7 +165,7 @@ the same three tools change their minds again. Run it before you wire anything u
 For memory that actually persists — and for semantic recall, which the offline
 mock does not do — add real credentials. Each person owns their own Walrus Memory
 account, so there is no shared key to copy. Sign in to the web app, create your
-account at `/setup`, then open **Settings → Connect a coding agent (MCP)**. It
+account at `/setup`, then open **Settings → Developer key**. It
 registers a separate key for your agent onchain (gas is sponsored) and prints the
 values below, once, ready to paste. The key is generated in your browser;
 the app never sees it.

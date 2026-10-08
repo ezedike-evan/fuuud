@@ -53,7 +53,7 @@ Fuuud is several surfaces over one record:
 - **Telegram and voice.** Message the bot, or send it a voice note, and it answers from the same record. The
   website chat has a mic for dictation. Both are described below.
 - **An MCP server** exposes the same memory, through the *same contract*, to
-  Claude Code, Cursor, or any other agent. A fact your coding agent learns is
+  Claude Code, Cursor, or any other agent. A fact a connected agent learns is
   enforced by the web app's allergen screen, and vice versa, because the record
   lives on Walrus rather than inside either application.
 
@@ -325,7 +325,7 @@ and synthetic conditions; no real person's medical data goes onto a public
 network.
 
 `pnpm smoke` needs a test account's `MEMWAL_PRIVATE_KEY` and `MEMWAL_ACCOUNT_ID` (create one at `/setup`, then
-Settings -> Connect a coding agent (MCP) prints them once). The checked-in `PROOF.md` is from an earlier run: rerun it
+Settings -> Developer key prints them once). The checked-in `PROOF.md` is from an earlier run: rerun it
 against your own network before relying on it.
 
 Also checked in this repository: 261 unit tests, `pnpm oauth:e2e` (the hosted connector over HTTP on the offline

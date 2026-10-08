@@ -374,7 +374,7 @@ pnpm smoke       # live check against the staging relayer (needs MEMWAL_* keys)
 ```
 
 `pnpm smoke` needs a test account's `MEMWAL_PRIVATE_KEY` and `MEMWAL_ACCOUNT_ID` (the app no longer holds a shared key):
-create an account at `/setup`, then take the values from **Settings -> Connect a coding agent (MCP)**, which prints
+create an account at `/setup`, then take the values from **Settings -> Developer key**, which prints
 them once, and put them in `.env.local` next to the `MEMWAL_SERVER_URL` for your network.
 
 `pnpm smoke` writes a synthetic subject to staging and asserts the four claims
@@ -412,7 +412,7 @@ write through the **same contract** — the same relevance threshold, the same
 duplicate reconciliation, the same supersede stamping, the same allergen screen.
 Nothing is reimplemented; the server imports `lib/memory-core.ts` directly.
 
-That is the portability argument made concrete. A fact your coding agent learns
+That is the portability argument made concrete. A fact a connected agent learns
 is enforced by the web app's safety screen, and vice versa, because the record
 lives on Walrus under your own address rather than inside either application.
 
@@ -432,7 +432,7 @@ and allergies as JSON.
 
 ### Add it to Claude Code
 
-Get the three values from **Settings → Connect a coding agent (MCP)** in the web app:
+Get the three values from **Settings → Developer key** in the web app:
 it registers a separate key for your agent on your own account and shows it once.
 
 ```json
