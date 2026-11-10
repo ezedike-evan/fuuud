@@ -11,6 +11,7 @@
  * No `server-only`, no `next/*`: it is unit-tested with injected dependencies.
  */
 import { grpcFor, relayerChain, type RelayerChain } from "./account-lookup.ts";
+import { relayerUrl, TESTNET_RELAYER } from "./relayer-url.ts";
 
 export type ChainConfig = {
   network: "testnet" | "mainnet";
@@ -32,7 +33,7 @@ export const KNOWN: Record<string, { network: "testnet" | "mainnet"; registryId:
   "0x0a625e2db2af6f591a4c80a3d8551ddf11656089cc3a20c5e9e7f8fb75b9265c": {
     network: "testnet",
     registryId: "0x736aef9906798fca4460490ccdf8e8502ef170122dc26ecae32111b78c6b42dd",
-    relayer: "https://relayer-staging.memory.walrus.xyz",
+    relayer: TESTNET_RELAYER,
   },
   "0xe7c16fbea0560e7057e2bf7422feaa4fb313749fc69c9e9092fac7a33b81d7f5": {
     network: "mainnet",
@@ -68,7 +69,7 @@ export async function inspectChainConfig(
   env: { server?: string; registryId?: string; appNetwork?: string; packageOverride?: string } = {},
   deps: Deps = realDeps,
 ): Promise<Inspection> {
-  const server = (env.server ?? process.env.MEMWAL_SERVER_URL)?.trim() || "https://relayer-staging.memory.walrus.xyz";
+  const server = relayerUrl(env.server ?? process.env.MEMWAL_SERVER_URL);
   const registryId = (env.registryId ?? process.env.MEMWAL_REGISTRY_ID)?.trim() ?? "";
   const appNetwork = (env.appNetwork ?? process.env.NEXT_PUBLIC_SUI_NETWORK)?.trim() || "testnet";
 

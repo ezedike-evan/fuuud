@@ -1,3 +1,4 @@
+import { relayerUrl } from "./relayer-url.ts";
 import { MemWal, MemWalMock } from "@mysten-incubation/memwal";
 import { acquire, POINTS } from "./relayer-budget.ts";
 import { currentScope, MemwalSetupRequired } from "./memwal-scope.ts";
@@ -282,7 +283,7 @@ export function createMemWal(namespace: string) {
   const client = MemWal.create({
     key: who.key,
     accountId: who.accountId,
-    serverUrl: process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz",
+    serverUrl: relayerUrl(),
     namespace,
   });
   live.set(id, client);

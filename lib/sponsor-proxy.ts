@@ -1,3 +1,4 @@
+import { relayerUrl } from "./relayer-url.ts";
 import "server-only";
 import { getOwnerAddress } from "./session.ts";
 import { kvIncr } from "./kv.ts";
@@ -31,7 +32,7 @@ export async function proxySponsor(req: Request, path: "/sponsor" | "/sponsor/ex
     return new Response("sender must be the signed-in address", { status: 403 });
   }
 
-  const server = (process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz").replace(/\/$/, "");
+  const server = relayerUrl();
   const upstream = await fetch(`${server}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },

@@ -14,11 +14,12 @@
  *
  *   MEMWAL_PRIVATE_KEY   delegate key (server-side only)
  *   MEMWAL_ACCOUNT_ID    the person's Walrus Memory account
- *   MEMWAL_SERVER_URL    relayer (defaults to staging)
+ *   MEMWAL_SERVER_URL    relayer (defaults to the testnet relayer)
  *   KM_OWNER_ADDRESS     optional. Whose memory this server speaks for. Normally
  *                        derived from MEMWAL_ACCOUNT_ID: the account object on
  *                        Sui records its own owner, so there is nothing to repeat.
  */
+import { relayerUrl } from "../lib/relayer-url.ts";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
@@ -41,7 +42,7 @@ async function resolveOwner(): Promise<string> {
     process.exit(1);
   }
   try {
-    const chain = await relayerChain(process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz");
+    const chain = await relayerChain(relayerUrl());
     return await fetchOwnerOfAccount(grpcFor(chain), accountId);
   } catch (error) {
     console.error(`Could not read the owner of ${accountId} from Sui: ${error instanceof Error ? error.message : error}. Set KM_OWNER_ADDRESS to name it directly.`);

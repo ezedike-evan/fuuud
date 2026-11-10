@@ -178,7 +178,7 @@ You do not set an owner address: the server reads it from `MEMWAL_ACCOUNT_ID`, b
 the account object on Sui records its own owner (`KM_OWNER_ADDRESS` still works as
 an override). Point `MEMWAL_SERVER_URL` at the relayer for your network, and keep it the same
 network as the web app: `https://relayer.memory.walrus.xyz` is mainnet,
-`https://relayer-staging.memory.walrus.xyz` is testnet.
+`https://relayer.dev.memwal.ai` is testnet.
 
 The MCP tools need no model provider key: `remember_fact` takes the fact
 directly, and `check_meal` is deterministic. A key is only needed if you also run

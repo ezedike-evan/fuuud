@@ -10,7 +10,7 @@ const MAINNET_REG = KNOWN[MAINNET_PKG].registryId;
 /** A fake Sui where each network only knows its own registry. */
 const deps = (over: Partial<Deps> = {}): Deps => ({
   chain: async (server) =>
-    server.includes("staging")
+    server.includes("dev.memwal")
       ? { network: "testnet", grpcUrl: "https://t", packageId: TESTNET_PKG }
       : { network: "mainnet", grpcUrl: "https://m", packageId: MAINNET_PKG },
   registry: async (chain, id) =>
@@ -20,7 +20,7 @@ const deps = (over: Partial<Deps> = {}): Deps => ({
   ...over,
 });
 
-const STAGING = "https://relayer-staging.memory.walrus.xyz";
+const STAGING = "https://relayer.dev.memwal.ai";
 const PROD = "https://relayer.memory.walrus.xyz";
 const problem = (r: Awaited<ReturnType<typeof inspectChainConfig>>) => (r.ok ? "" : r.problem);
 

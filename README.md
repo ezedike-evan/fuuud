@@ -379,7 +379,7 @@ pnpm dev
 ```
 
 Credentials: Walrus Memory account + delegate key from
-<https://staging.memory.walrus.xyz>, Enoki key from
+<https://dev.memwal.ai>, Enoki key from
 <https://portal.enoki.mystenlabs.com>, plus any one model provider key.
 
 Enoki sign-in is wired end to end (`components/sign-in.tsx` →
@@ -465,7 +465,7 @@ it registers a separate key for your agent on your own account and shows it once
       "env": {
         "MEMWAL_PRIVATE_KEY": "...",
         "MEMWAL_ACCOUNT_ID": "0x...",
-        "MEMWAL_SERVER_URL": "https://relayer-staging.memory.walrus.xyz"
+        "MEMWAL_SERVER_URL": "https://relayer.dev.memwal.ai"
       }
     }
   }

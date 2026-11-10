@@ -1,3 +1,4 @@
+import { relayerUrl } from "./relayer-url.ts";
 import "server-only";
 import { MemWal } from "@mysten-incubation/memwal";
 
@@ -17,7 +18,7 @@ export async function verifyDelegate(input: { accountId: string; delegateKey: st
   const client = MemWal.create({
     key: input.delegateKey,
     accountId: input.accountId,
-    serverUrl: process.env.MEMWAL_SERVER_URL?.trim() || "https://relayer-staging.memory.walrus.xyz",
+    serverUrl: relayerUrl(),
     namespace: input.namespace,
   });
   let last = "";
