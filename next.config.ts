@@ -26,7 +26,7 @@ const BASELINE = [
 const ICON_CACHE = [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@mysten-incubation/memwal"],
+  serverExternalPackages: ["@mysten-incubation/memwal", "@grpc/grpc-js", "@protobuf-ts/grpc-transport"],
   poweredByHeader: false,
   compress: true,
   images: { formats: ["image/avif", "image/webp"] },

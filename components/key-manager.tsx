@@ -7,7 +7,10 @@ import { removeKeyOnchain } from "@/lib/remove-key";
 import { NETWORK, useEnokiWallet } from "@/lib/use-enoki-wallet";
 
 type Listed = DelegateKey & { kind: KeyKind };
-type Payload = { accountId: string | null; max: number; keys: Listed[] };
+type ChainHead = { provider: "tatum" | "fullnode"; network: string; checkpoint: string | null; epoch: string | null };
+type Payload = { accountId: string | null; max: number; keys: Listed[]; chain?: ChainHead | null };
+
+const group = (n: string) => n.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 const KIND_LABEL: Record<KeyKind, string> = {
   "this-browser": "This browser",
@@ -98,6 +101,27 @@ export default function KeyManager({ address, onBelowCap, heading = "Keys on you
         Every browser, device and connected app holds a key of its own. A key&apos;s secret half never leaves the place that made it, so a new
         device cannot reuse an old key and adds a new one. An account holds at most 20. Remove the ones you no longer use.
       </p>
+      {data?.chain?.checkpoint && (
+        // Where this list came from: read live from Sui, not from anything this app stored.
+        <p className="-mt-2 mb-4 font-mono text-[11px] tabular-nums text-ink-faint">
+          Read from Sui {data.chain.network} {data.chain.provider === "tatum" ? "via Tatum" : "via a public fullnode"} · checkpoint{" "}
+          {group(data.chain.checkpoint)}
+          {data.chain.epoch && <> · epoch {data.chain.epoch}</>}
+          {data.accountId && (
+            <>
+              {" · "}
+              <a
+                className="underline decoration-line underline-offset-2 hover:text-ink-muted"
+                href={`https://suiscan.xyz/${data.chain.network}/object/${data.accountId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                account {data.accountId.slice(0, 8)}…{data.accountId.slice(-4)}
+              </a>
+            </>
+          )}
+        </p>
+      )}
 
       {atCap && (
         <p role="alert" className="mb-4 rounded-[8px] border border-danger-line px-3.5 py-2.5 text-[12.5px] leading-relaxed text-danger">

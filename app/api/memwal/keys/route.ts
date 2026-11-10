@@ -5,6 +5,7 @@ import { credsFor } from "@/lib/memwal-cookie.ts";
 import { listGrants } from "@/lib/oauth/grants.ts";
 import { oauthConfigured } from "@/lib/seal.ts";
 import { getOwnerAddress } from "@/lib/session.ts";
+import { chainHead } from "@/lib/tatum.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,11 @@ export async function GET() {
 
   try {
     const client = grpcFor(checked.config);
+    // Which checkpoint these reads came from, and through which gateway. Best effort:
+    // a missing head never hides the keys.
+    const head = chainHead(client, checked.config.network).catch(() => null);
     const accountId = await fetchAccountIdForOwner(client, checked.config.registryId, address);
-    if (!accountId) return Response.json({ accountId: null, max: MAX_DELEGATE_KEYS, keys: [] }, { headers: { "cache-control": "no-store" } });
+    if (!accountId) return Response.json({ accountId: null, max: MAX_DELEGATE_KEYS, keys: [], chain: await head }, { headers: { "cache-control": "no-store" } });
 
     const [keys, mine, grants] = await Promise.all([
       fetchDelegateKeys(client, accountId),
@@ -42,6 +46,7 @@ export async function GET() {
         keys: keys
           .map((k) => ({ ...k, kind: classifyKey(k, { thisBrowser: mine?.delegatePublicKey, connectorKeys }) }))
           .sort((a, b) => b.createdAt - a.createdAt),
+        chain: await head,
       },
       { headers: { "cache-control": "no-store" } },
     );

@@ -87,6 +87,25 @@ Relayer allowance: 30 points per minute per delegate key (remember 5, recall 1,
 analyze 10). `lib/relayer-budget.ts` spends it deliberately, and a week of
 planned meals is written with one bulk call, not 21 single writes.
 
+## Sui reads through Tatum
+
+Every onchain read the server makes about your memory account goes through one function, `grpcFor()` in
+`lib/account-lookup.ts`. That covers finding your MemWalAccount in the registry, listing its delegate keys,
+checking that `MEMWAL_REGISTRY_ID` really is a registry on the relayer's network, and, in the MCP server,
+learning the owner from the account id. With `TATUM_API_KEY` set, `grpcFor()` returns a `SuiGrpcClient` on
+**Tatum's Sui gateway** (`sui-mainnet-grpc.gateway.tatum.io`). Without the key it uses the fullnode the
+relayer reports, as before.
+
+Tatum serves Sui over **native** gRPC (HTTP/2, `application/grpc`). The SDK's default transport is gRPC-web
+over `fetch`, and Tatum answers it with `unexpected response content type: application/grpc`. So
+`lib/tatum.ts` gives `SuiGrpcClient` protobuf-ts's grpc-js transport, which implements the same
+`RpcTransport` interface. Nothing downstream changes. The key travels as `x-api-key`, one HTTP/2 channel is
+reused per network, and it never reaches the browser: the wallet signs against a public fullnode.
+
+Settings shows where the key list came from: `Read from Sui mainnet via Tatum · checkpoint … · epoch …`,
+with a link to the account object on Suiscan. The checkpoint comes from Tatum's `LedgerService.GetServiceInfo`
+on the same client, so the line is evidence of the read rather than a label.
+
 ## Saves you can watch
 
 A write to Walrus takes 25-120 seconds (encrypt, upload, certify, index). The chat stream used to stay open for all of
@@ -239,6 +258,7 @@ lib/extract.ts           the write gate — what counts as a durable fact
 lib/safety.ts            deterministic allergen screening, runs after the model
 lib/consultants.ts       practitioner ranking driven by recalled conditions
 lib/namespaces.ts        the only place namespace strings are built
+lib/tatum.ts             Sui reads through Tatum's gateway (native gRPC transport)
 lib/memory-core.ts       the contract, importable from anywhere
 mcp/server.mts           the same contract, exposed over MCP
 lib/chat-core.ts         the prompt, recall, system composition and write gate, shared by web and Telegram

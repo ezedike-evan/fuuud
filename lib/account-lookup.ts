@@ -10,6 +10,7 @@
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { fromHex, normalizeSuiAddress, toHex } from "@mysten/sui/utils";
 import { parseDelegateKeys, type DelegateKey } from "./delegate-keys.ts";
+import { suiClientFor } from "./tatum.ts";
 
 export type RelayerChain = { network: "testnet" | "mainnet"; grpcUrl: string; packageId: string };
 
@@ -24,8 +25,11 @@ export async function relayerChain(serverUrl: string): Promise<RelayerChain> {
   return { network: cfg.network, grpcUrl: cfg.suiGrpcUrl, packageId: cfg.packageId };
 }
 
-export const grpcFor = (chain: Pick<RelayerChain, "network" | "grpcUrl">) =>
-  new SuiGrpcClient({ network: chain.network, baseUrl: chain.grpcUrl });
+/**
+ * The server's Sui client. Through Tatum's gateway when TATUM_API_KEY is set (see
+ * ./tatum), otherwise the fullnode the relayer reports. Same SuiGrpcClient either way.
+ */
+export const grpcFor = (chain: Pick<RelayerChain, "network" | "grpcUrl">) => suiClientFor(chain.network, chain.grpcUrl);
 
 /** The MemWalAccount object id owned by `ownerAddress`, or null if they have none yet. */
 export async function fetchAccountIdForOwner(
